@@ -42,4 +42,10 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(ex.getMessage());
     }
     
+    @ExceptionHandler(InvalidSubmissionStatusException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleInvalidSubmissionStatus(InvalidSubmissionStatusException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+    
 }

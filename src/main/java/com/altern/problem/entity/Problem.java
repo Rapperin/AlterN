@@ -1,8 +1,10 @@
 package com.altern.problem.entity;
-
+import com.altern.submission.entity.Submission;
+import java.util.List;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Getter
 @Setter
@@ -21,4 +23,8 @@ public class Problem {
     
     @Enumerated(EnumType.STRING)
     private Difficulty difficulty;
+    
+    @JsonIgnore
+    @OneToMany(mappedBy = "problem")
+    private List<Submission> submissions;
 }

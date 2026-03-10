@@ -8,7 +8,9 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface SubmissionMapper {
     
+    @Mapping(target = "problemId", source = "problem.id")
     @Mapping(target = "language", expression = "java(submission.getLanguage().name())")
     @Mapping(target = "status", expression = "java(submission.getStatus().name())")
+    @Mapping(target = "createdAt", source = "createdAt")
     SubmissionResponse toResponse(Submission submission);
 }

@@ -9,7 +9,9 @@ import com.altern.problem.entity.Difficulty;
 import com.altern.problem.entity.Problem;
 import com.altern.problem.mapper.ProblemMapper;
 import com.altern.problem.repository.ProblemRepository;
+import com.altern.submission.entity.SubmissionStatus;
 import com.altern.submission.repository.SubmissionRepository;
+import com.altern.testcase.repository.TestCaseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -23,11 +25,13 @@ public class ProblemService {
     private final ProblemRepository problemRepository;
     private final ProblemMapper problemMapper;
     private final SubmissionRepository submissionRepository;
+    private final TestCaseRepository testCaseRepository;
     
     public List<ProblemResponse> getProblems() {
         return problemRepository.findAll()
                 .stream()
                 .map(problemMapper::toResponse)
+                .map(this::enrichWithSubmissionCount)
                 .sorted((a, b) -> Integer.compare(b.getSubmissionCount(), a.getSubmissionCount()))
                 .toList();
     }
@@ -36,7 +40,7 @@ public class ProblemService {
         Problem problem = problemRepository.findById(id)
                 .orElseThrow(() -> new ProblemNotFoundException(id));
         
-        return problemMapper.toResponse(problem);
+        return enrichWithSubmissionCount(problemMapper.toResponse(problem));
     }
     
     public ProblemResponse createProblem(ProblemCreateRequest request) {
@@ -61,6 +65,7 @@ public class ProblemService {
         var content = pageResult.getContent()
                 .stream()
                 .map(problemMapper::toResponse)
+                .map(this::enrichWithSubmissionCount)
                 .toList();
         
         return new PageResponse<>(
@@ -85,6 +90,7 @@ public class ProblemService {
         return problemRepository.findByDifficulty(diff)
                 .stream()
                 .map(problemMapper::toResponse)
+                .map(this::enrichWithSubmissionCount)
                 .toList();
     }
     
@@ -104,6 +110,7 @@ public class ProblemService {
         var allFiltered = problemRepository.findByDifficulty(diff)
                 .stream()
                 .map(problemMapper::toResponse)
+                .map(this::enrichWithSubmissionCount)
                 .toList();
         
         int fromIndex = Math.min(page * size, allFiltered.size());
@@ -127,10 +134,38 @@ public class ProblemService {
         return problemRepository.findByTitleContainingIgnoreCase(title)
                 .stream()
                 .map(problemMapper::toResponse)
+                .map(this::enrichWithSubmissionCount)
                 .toList();
     }
     
     public long getSubmissionCount(Long problemId) {
         return submissionRepository.countByProblem_Id(problemId);
     }
+    
+    private ProblemResponse enrichWithSubmissionCount(ProblemResponse response) {
+        
+        Long problemId = response.getId();
+        
+        response.setSubmissionCount(
+                (int) submissionRepository.countByProblem_Id(problemId)
+        );
+        
+        response.setTestCaseCount(
+                (int) testCaseRepository.countByProblem_Id(problemId)
+        );
+        
+        boolean solved = submissionRepository.existsByProblem_IdAndStatus(
+                problemId,
+                SubmissionStatus.ACCEPTED
+        );
+        
+        if (solved) {
+            response.setBestSubmissionStatus("ACCEPTED");
+        } else {
+            response.setBestSubmissionStatus("UNSOLVED");
+        }
+        
+        return response;
+    }
+    
 }

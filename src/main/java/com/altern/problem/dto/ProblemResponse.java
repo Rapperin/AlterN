@@ -12,6 +12,8 @@ public class ProblemResponse {
     private String description;
     private String difficulty;
     private int submissionCount;
+    private int testCaseCount;
+    private String bestSubmissionStatus;
     
     
 }

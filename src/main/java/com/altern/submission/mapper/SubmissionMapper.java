@@ -12,5 +12,6 @@ public interface SubmissionMapper {
     @Mapping(target = "language", expression = "java(submission.getLanguage().name())")
     @Mapping(target = "status", expression = "java(submission.getStatus().name())")
     @Mapping(target = "createdAt", source = "createdAt")
+    @Mapping(target = "problemTitle", source = "problem.title")
     SubmissionResponse toResponse(Submission submission);
 }

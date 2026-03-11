@@ -29,4 +29,7 @@ public class Submission {
     private SubmissionStatus status;
     
     private LocalDateTime createdAt;
+    
+    private Integer passedTestCount;
+    private Integer totalTestCount;
 }

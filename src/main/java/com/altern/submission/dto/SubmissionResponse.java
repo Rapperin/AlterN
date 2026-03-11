@@ -13,5 +13,8 @@ public class SubmissionResponse {
     private String language;
     private String status;
     private LocalDateTime createdAt;
+    private Integer passedTestCount;
+    private Integer totalTestCount;
+    private String problemTitle;
     
 }

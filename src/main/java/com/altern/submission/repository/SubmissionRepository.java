@@ -11,5 +11,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findByStatus(SubmissionStatus status);
     List<Submission> findByProblem_Id(Long problemId);
     long countByProblem_Id(Long problemId);
+    boolean existsByProblem_IdAndStatus(Long problemId, SubmissionStatus status);
     
 }

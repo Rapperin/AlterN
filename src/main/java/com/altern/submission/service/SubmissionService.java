@@ -12,7 +12,8 @@ import com.altern.submission.mapper.SubmissionMapper;
 import com.altern.submission.repository.SubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import com.altern.submission.judge.JudgeService;
+import com.altern.testcase.repository.TestCaseRepository;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.PageRequest;
 
@@ -22,6 +23,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SubmissionService {
     
+    private final JudgeService judgeService;
+    private final TestCaseRepository testCaseRepository;
     private final SubmissionRepository submissionRepository;
     private final SubmissionMapper submissionMapper;
     private final ProblemService problemService;
@@ -34,15 +37,22 @@ public class SubmissionService {
         submission.setProblem(problem);
         submission.setSourceCode(request.getSourceCode());
         submission.setCreatedAt(LocalDateTime.now());
+        submission.setStatus(SubmissionStatus.PENDING);
+        
         
         try {
             submission.setLanguage(ProgrammingLanguage.valueOf(request.getLanguage().toUpperCase()));
         } catch (IllegalArgumentException e) {
             throw new InvalidProgrammingLanguageException(request.getLanguage());
         }
+        var testCases = testCaseRepository.findByProblem_Id(problem.getId());
         
-        if (submission.getSourceCode() != null &&
-                submission.getSourceCode().contains("class Solution")) {
+        var judgeResult = judgeService.judge(testCases, submission.getSourceCode());
+        
+        submission.setPassedTestCount(judgeResult.getPassedTestCount());
+        submission.setTotalTestCount(judgeResult.getTotalTestCount());
+        
+        if (judgeResult.isAccepted()) {
             submission.setStatus(SubmissionStatus.ACCEPTED);
         } else {
             submission.setStatus(SubmissionStatus.WRONG_ANSWER);

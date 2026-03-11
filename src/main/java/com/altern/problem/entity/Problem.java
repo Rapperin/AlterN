@@ -1,6 +1,8 @@
 package com.altern.problem.entity;
 import com.altern.submission.entity.Submission;
 import java.util.List;
+
+import com.altern.testcase.entity.TestCase;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,4 +29,7 @@ public class Problem {
     @JsonIgnore
     @OneToMany(mappedBy = "problem")
     private List<Submission> submissions;
+    
+    @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL)
+    private List<TestCase> testCases;
 }

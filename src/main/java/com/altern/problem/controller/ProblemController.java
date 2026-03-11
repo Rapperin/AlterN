@@ -1,8 +1,8 @@
 package com.altern.problem.controller;
 import com.altern.common.PageResponse;
+import com.altern.problem.dto.BulkProblemCreateRequest;
 import com.altern.problem.dto.ProblemCreateRequest;
 import com.altern.problem.dto.ProblemResponse;
-import com.altern.problem.entity.Problem;
 import com.altern.problem.service.ProblemService;
 import com.altern.submission.dto.SubmissionResponse;
 import com.altern.submission.service.SubmissionService;
@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import io.swagger.v3.oas.annotations.Parameter;
 import java.net.URI;
 import java.util.List;
@@ -86,6 +88,25 @@ public class ProblemController {
         URI location = URI.create("/api/problems/" + created.getId());
         return ResponseEntity.created(location).body(created);
     }
+
+    @Operation(summary = "Bulk create problems", description = "Creates multiple coding problems in a single request")
+    @PostMapping("/api/problems/bulk")
+    public ResponseEntity<List<ProblemResponse>> createProblems(@Valid @RequestBody BulkProblemCreateRequest request) {
+        return ResponseEntity.ok(problemService.createProblems(request));
+    }
+
+    @Operation(summary = "Update an existing problem", description = "Updates a coding problem by id")
+    @PutMapping("/api/problems/{id}")
+    public ProblemResponse updateProblem(@PathVariable Long id, @Valid @RequestBody ProblemCreateRequest request) {
+        return problemService.updateProblem(id, request);
+    }
+
+    @Operation(summary = "Delete a problem", description = "Deletes a problem if it does not have submissions")
+    @DeleteMapping("/api/problems/{id}")
+    public ResponseEntity<Void> deleteProblem(@PathVariable Long id) {
+        problemService.deleteProblem(id);
+        return ResponseEntity.noContent().build();
+    }
     
     @Operation(
             summary = "Get submissions of a problem",
@@ -111,7 +132,7 @@ public class ProblemController {
             size = 50;
         }
         
-        return submissionService.getSubmissionsByProblemId(id, page, size);
+        return submissionService.getPublicSubmissionsByProblemId(id, page, size);
     }
     
 }

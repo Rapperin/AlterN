@@ -1,0 +1,2 @@
+ALTER TABLE problems ADD COLUMN IF NOT EXISTS editorial_title VARCHAR(255);
+ALTER TABLE problems ADD COLUMN IF NOT EXISTS editorial_content VARCHAR(12000);

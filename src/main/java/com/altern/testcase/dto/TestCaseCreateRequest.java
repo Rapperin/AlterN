@@ -11,5 +11,6 @@ public class TestCaseCreateRequest {
     private String input;
     @NotBlank
     private String expectedOutput;
+    private Boolean hidden;
     
 }

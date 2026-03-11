@@ -1,10 +1,11 @@
 package com.altern.common;
 
+import com.altern.auth.AuthenticationFailedException;
+import com.altern.auth.UserAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -18,6 +19,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SubmissionNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleSubmissionNotFound(SubmissionNotFoundException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+    @ExceptionHandler(TestCaseNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleTestCaseNotFound(TestCaseNotFoundException ex) {
         return new ErrorResponse(ex.getMessage());
     }
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -45,6 +51,30 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidSubmissionStatusException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleInvalidSubmissionStatus(InvalidSubmissionStatusException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleUserAlreadyExists(UserAlreadyExistsException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(AuthenticationFailedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleAuthenticationFailed(AuthenticationFailedException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(ProblemDeletionNotAllowedException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleProblemDeletionNotAllowed(ProblemDeletionNotAllowedException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(WorkspaceComparisonNotAllowedException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleWorkspaceComparisonNotAllowed(WorkspaceComparisonNotAllowedException ex) {
         return new ErrorResponse(ex.getMessage());
     }
     

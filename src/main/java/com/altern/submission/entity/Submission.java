@@ -1,5 +1,6 @@
 package com.altern.submission.entity;
 
+import com.altern.auth.entity.UserAccount;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,6 +19,10 @@ public class Submission {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "problem_id", nullable = false)
     private Problem problem;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserAccount user;
     
     @Enumerated(EnumType.STRING)
     private ProgrammingLanguage language;
@@ -32,4 +37,22 @@ public class Submission {
     
     private Integer passedTestCount;
     private Integer totalTestCount;
+    private LocalDateTime judgedAt;
+    private Integer executionTime;
+    private Integer memoryUsage;
+
+    @Column(length = 2000)
+    private String verdictMessage;
+
+    private Integer failedTestIndex;
+    private Boolean failedVisibleCase;
+
+    @Column(length = 2000)
+    private String failedInputPreview;
+
+    @Column(length = 2000)
+    private String failedExpectedOutputPreview;
+
+    @Column(length = 2000)
+    private String failedActualOutputPreview;
 }

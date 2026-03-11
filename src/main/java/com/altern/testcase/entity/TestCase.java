@@ -17,8 +17,18 @@ public class TestCase {
     private String input;
     
     private String expectedOutput;
+
+    @Column(columnDefinition = "boolean default false")
+    private Boolean hidden;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "problem_id")
     private Problem problem;
+
+    @PrePersist
+    void applyDefaults() {
+        if (hidden == null) {
+            hidden = false;
+        }
+    }
 }

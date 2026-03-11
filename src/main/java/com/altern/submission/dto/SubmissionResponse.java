@@ -13,8 +13,12 @@ public class SubmissionResponse {
     private String language;
     private String status;
     private LocalDateTime createdAt;
+    private LocalDateTime judgedAt;
     private Integer passedTestCount;
     private Integer totalTestCount;
     private String problemTitle;
+    private Integer executionTime;
+    private Integer memoryUsage;
+    private String verdictMessage;
     
 }

@@ -1,5 +1,6 @@
 package com.altern.submission.controller;
 import com.altern.common.PageResponse;
+import com.altern.submission.dto.SubmissionDetailResponse;
 import com.altern.submission.dto.SubmissionResponse;
 import org.springframework.web.bind.annotation.PathVariable;
 import com.altern.submission.entity.Submission;
@@ -97,7 +98,7 @@ public class SubmissionController {
     }
     @GetMapping("/api/submissions/{id}")
     @Operation(summary = "Get submission by id", description = "Returns a single submission by its id")
-    public SubmissionResponse getSubmissionById(@PathVariable Long id) {
+    public SubmissionDetailResponse getSubmissionById(@PathVariable Long id) {
         return submissionService.getSubmissionById(id);
     }
 }

@@ -1,5 +1,18 @@
 const AUTH_TOKEN_STORAGE_KEY = "altern.auth.token";
 const EDITOR_DRAFT_STORAGE_KEY = "altern.editor.drafts.v1";
+const DEFAULT_TIME_LIMIT_MS = 5000;
+const DEFAULT_MEMORY_LIMIT_MB = 256;
+const SUBMISSION_POLL_INTERVAL_MS = 1500;
+const SUBMISSION_POLL_MAX_ATTEMPTS = 40;
+const DASHBOARD_PENDING_REFRESH_MS = 2500;
+const CATALOG_ATTENTION_ORDER = [
+    "NEEDS_HIDDEN_DEPTH",
+    "LOW_TOTAL_CASE_COVERAGE",
+    "NEEDS_PUBLIC_SAMPLE",
+    "LOW_EXAMPLE_DEPTH",
+    "MISSING_HINT",
+    "MISSING_EDITORIAL"
+];
 
 const state = {
     problems: [],
@@ -7,12 +20,17 @@ const state = {
     selectedProblemId: null,
     selectedProblem: null,
     workspaceSummary: null,
+    catalogHealth: null,
+    runnerHealth: null,
     userDashboard: null,
     globalLeaderboard: null,
+    selectedUserProfile: null,
     problemLeaderboard: null,
+    problemStats: null,
     problemScope: "ALL",
     problemDifficultyFilter: "ALL",
     problemTagFilter: "ALL",
+    adminAttentionFilter: "ALL",
     selectedCompareSubmission: null,
     replayComparison: null,
     replayResult: null,
@@ -24,7 +42,9 @@ const state = {
     currentUser: null,
     editorDrafts: loadEditorDrafts(),
     editorLanguageContext: "JAVA",
-    draftSaveTimerId: null
+    draftSaveTimerId: null,
+    runnerHealthRefreshing: false,
+    pendingDashboardRefreshTimerId: null
 };
 
 const refs = {
@@ -38,7 +58,10 @@ const refs = {
     authCurrentUsername: document.getElementById("authCurrentUsername"),
     authCurrentRole: document.getElementById("authCurrentRole"),
     authFeedback: document.getElementById("authFeedback"),
+    preflightBanner: document.getElementById("preflightBanner"),
     adminPanel: document.getElementById("adminPanel"),
+    catalogHealthCard: document.getElementById("catalogHealthCard"),
+    authoringFocusCard: document.getElementById("authoringFocusCard"),
     problemCreateForm: document.getElementById("problemCreateForm"),
     problemCreateTitle: document.getElementById("problemCreateTitle"),
     problemCreateDescription: document.getElementById("problemCreateDescription"),
@@ -51,6 +74,7 @@ const refs = {
     problemCreateEditorialContent: document.getElementById("problemCreateEditorialContent"),
     problemCreateDifficulty: document.getElementById("problemCreateDifficulty"),
     problemCreateTimeLimit: document.getElementById("problemCreateTimeLimit"),
+    problemCreateMemoryLimit: document.getElementById("problemCreateMemoryLimit"),
     problemCreateTags: document.getElementById("problemCreateTags"),
     problemCreateExamples: document.getElementById("problemCreateExamples"),
     problemCreateStarterCodes: document.getElementById("problemCreateStarterCodes"),
@@ -74,10 +98,13 @@ const refs = {
     problemSearch: document.getElementById("problemSearch"),
     problemFacetCard: document.getElementById("problemFacetCard"),
     userDashboardCard: document.getElementById("userDashboardCard"),
+    runnerHealthCard: document.getElementById("runnerHealthCard"),
     communityLeaderboardCard: document.getElementById("communityLeaderboardCard"),
+    userProfileCard: document.getElementById("userProfileCard"),
     progressSummary: document.getElementById("progressSummary"),
     problemList: document.getElementById("problemList"),
     problemTitle: document.getElementById("problemTitle"),
+    problemBookmarkButton: document.getElementById("problemBookmarkButton"),
     problemDifficulty: document.getElementById("problemDifficulty"),
     problemDescription: document.getElementById("problemDescription"),
     problemConstraints: document.getElementById("problemConstraints"),
@@ -90,12 +117,14 @@ const refs = {
     problemEditorialState: document.getElementById("problemEditorialState"),
     problemEditorial: document.getElementById("problemEditorial"),
     problemLeaderboardCard: document.getElementById("problemLeaderboardCard"),
+    problemStatsCard: document.getElementById("problemStatsCard"),
     problemTags: document.getElementById("problemTags"),
     problemExampleList: document.getElementById("problemExampleList"),
     visibleTestcaseCount: document.getElementById("visibleTestcaseCount"),
     submissionCount: document.getElementById("submissionCount"),
     viewerStatus: document.getElementById("viewerStatus"),
     problemTimeLimit: document.getElementById("problemTimeLimit"),
+    problemMemoryLimit: document.getElementById("problemMemoryLimit"),
     submissionPanelEyebrow: document.getElementById("submissionPanelEyebrow"),
     submissionPanelTitle: document.getElementById("submissionPanelTitle"),
     workspaceSummaryCard: document.getElementById("workspaceSummaryCard"),
@@ -114,7 +143,9 @@ const refs = {
     replayResultCard: document.getElementById("replayResultCard"),
     replayCompareCard: document.getElementById("replayCompareCard"),
     templateButton: document.getElementById("templateButton"),
+    editorLanguageRecommendation: document.getElementById("editorLanguageRecommendation"),
     editorNote: document.getElementById("editorNote"),
+    editorRuntimeAssist: document.getElementById("editorRuntimeAssist"),
     draftStatusCard: document.getElementById("draftStatusCard"),
     submissionFeedback: document.getElementById("submissionFeedback"),
     submissionList: document.getElementById("submissionList")
@@ -127,17 +158,22 @@ document.addEventListener("DOMContentLoaded", () => {
 async function bootstrap() {
     bindEvents();
     state.editorLanguageContext = refs.language.value;
+    renderUserProfile();
+    renderProblemStats();
     await hydrateAuth();
     updateEditorNote();
     applyStarterTemplate();
     await Promise.all([
         loadProblems(),
-        loadGlobalLeaderboard()
+        loadGlobalLeaderboard(),
+        loadRunnerHealth()
     ]);
+    await refreshSelectedUserProfile();
 }
 
 function bindEvents() {
     refs.problemSearch.addEventListener("input", renderProblemList);
+    refs.problemBookmarkButton.addEventListener("click", toggleProblemBookmark);
     refs.authForm.addEventListener("submit", login);
     refs.registerButton.addEventListener("click", register);
     refs.logoutButton.addEventListener("click", logout);
@@ -152,8 +188,11 @@ function bindEvents() {
     refs.sourceCode.addEventListener("input", scheduleDraftSave);
     refs.templateButton.addEventListener("click", () => applyStarterTemplate({ confirmOverwrite: true }));
     refs.submissionForm.addEventListener("submit", submitSolution);
+    refs.editorLanguageRecommendation.addEventListener("click", handleEditorLanguageRecommendationClick);
+    refs.editorRuntimeAssist.addEventListener("click", handleEditorRuntimeAssistClick);
     refs.replayForm.addEventListener("submit", runReplay);
     refs.replayClearButton.addEventListener("click", resetReplayPanel);
+    refs.runnerHealthCard.addEventListener("click", handleRunnerHealthCardClick);
 }
 
 async function hydrateAuth() {
@@ -191,10 +230,12 @@ async function loadProblems(preferredProblemId = state.selectedProblemId) {
             await selectProblem(nextProblemId);
         } else {
             renderProblemEmptyState();
+            await loadCatalogHealth();
         }
     } catch (error) {
         showFeedback(error.message, "error");
         renderProblemEmptyState("Problem listesi yuklenemedi.");
+        await loadCatalogHealth();
     }
 
     await loadUserDashboard();
@@ -212,8 +253,93 @@ async function loadGlobalLeaderboard() {
     renderGlobalLeaderboard();
 }
 
+async function loadRunnerHealth(options = {}) {
+    const refresh = Boolean(options.refresh);
+    state.runnerHealthRefreshing = refresh;
+    renderRunnerHealth();
+
+    try {
+        state.runnerHealth = await fetchJson(refresh ? "/api/health?refresh=true" : "/api/health", {
+            headers: authHeaders()
+        });
+    } catch (error) {
+        state.runnerHealth = null;
+    } finally {
+        state.runnerHealthRefreshing = false;
+    }
+
+    renderRunnerHealth();
+    refreshLanguageAvailability();
+    renderPreflightBanner();
+}
+
+function handleRunnerHealthCardClick(event) {
+    const refreshButton = event.target.closest("[data-runner-health-refresh]");
+    if (refreshButton) {
+        if (state.runnerHealthRefreshing) {
+            return;
+        }
+
+        void loadRunnerHealth({ refresh: true });
+        return;
+    }
+
+    const copyButton = event.target.closest("[data-copy-runtime-command]");
+    if (!copyButton) {
+        return;
+    }
+
+    void copyRuntimeCommand(copyButton.dataset.copyRuntimeCommand, copyButton.dataset.copyRuntimeLanguage);
+}
+
+function handleEditorRuntimeAssistClick(event) {
+    const switchButton = event.target.closest("[data-editor-runtime-switch-language]");
+    if (switchButton) {
+        switchEditorLanguage(switchButton.dataset.editorRuntimeSwitchLanguage);
+        return;
+    }
+
+    const copyButton = event.target.closest("[data-copy-runtime-command]");
+    if (copyButton) {
+        void copyRuntimeCommand(copyButton.dataset.copyRuntimeCommand, copyButton.dataset.copyRuntimeLanguage);
+        return;
+    }
+
+    const refreshButton = event.target.closest("[data-runner-health-refresh]");
+    if (refreshButton && !state.runnerHealthRefreshing) {
+        void loadRunnerHealth({ refresh: true });
+    }
+}
+
+function handleEditorLanguageRecommendationClick(event) {
+    const recommendationButton = event.target.closest("[data-editor-recommended-language]");
+    if (!recommendationButton) {
+        return;
+    }
+
+    switchEditorLanguage(recommendationButton.dataset.editorRecommendedLanguage);
+}
+
+async function refreshSelectedUserProfile() {
+    if (!state.selectedUserProfile?.username) {
+        renderUserProfile();
+        return;
+    }
+
+    try {
+        state.selectedUserProfile = await fetchJson(`/api/users/${encodeURIComponent(state.selectedUserProfile.username)}/profile`, {
+            headers: authHeaders()
+        });
+    } catch (error) {
+        state.selectedUserProfile = null;
+    }
+
+    renderUserProfile();
+}
+
 async function loadUserDashboard() {
     if (!state.currentUser || !state.authToken) {
+        clearPendingDashboardRefresh();
         state.userDashboard = null;
         renderUserDashboard();
         renderProblemList();
@@ -230,6 +356,28 @@ async function loadUserDashboard() {
 
     renderUserDashboard();
     renderProblemList();
+    schedulePendingDashboardRefresh();
+}
+
+async function loadCatalogHealth() {
+    if (!state.currentUser || !state.authToken || !isAdmin()) {
+        state.catalogHealth = null;
+        state.adminAttentionFilter = "ALL";
+        renderCatalogHealth();
+        return;
+    }
+
+    try {
+        state.catalogHealth = await fetchJson("/api/admin/catalog/health", {
+            headers: authHeaders()
+        });
+        normalizeAdminAttentionFilter();
+    } catch (error) {
+        state.catalogHealth = null;
+        showAuthorFeedback(error.message, "error");
+    }
+
+    renderCatalogHealth();
 }
 
 async function fetchAllProblems() {
@@ -272,7 +420,7 @@ async function selectProblem(problemId) {
             })
             : Promise.resolve(null);
 
-        const [problem, testCases, submissionsPage, workspaceSummary, problemLeaderboard] = await Promise.all([
+        const [problem, testCases, submissionsPage, workspaceSummary, problemLeaderboard, problemStats] = await Promise.all([
             fetchJson(`/api/problems/${problemId}`, {
                 headers: authHeaders()
             }),
@@ -280,6 +428,9 @@ async function selectProblem(problemId) {
             submissionsPromise,
             workspacePromise,
             fetchJson(`/api/problems/${problemId}/leaderboard`, {
+                headers: authHeaders()
+            }),
+            fetchJson(`/api/problems/${problemId}/stats`, {
                 headers: authHeaders()
             })
         ]);
@@ -289,14 +440,17 @@ async function selectProblem(problemId) {
         state.visibleTestCases = testCases;
         state.submissions = submissionsPage.content || [];
         state.problemLeaderboard = problemLeaderboard;
+        state.problemStats = problemStats;
         populateProblemForm(problem);
         resetTestCaseEditor();
         renderSelectedProblem();
         renderProblemLeaderboard();
+        renderProblemStats();
         renderWorkspaceSummary();
         renderSamples();
         renderSubmissions();
         await loadAdminTestCases(problemId);
+        await loadCatalogHealth();
         updateEditorNote();
 
         if (shouldResetReplay) {
@@ -312,7 +466,9 @@ async function selectProblem(problemId) {
         }
     } catch (error) {
         state.problemLeaderboard = null;
+        state.problemStats = null;
         renderProblemLeaderboard();
+        renderProblemStats();
         showFeedback(error.message, "error");
     }
 }
@@ -326,7 +482,8 @@ function renderProblemList() {
         return searchable.includes(query)
             && matchesProblemScope(problem)
             && matchesProblemDifficulty(problem)
-            && matchesProblemTag(problem);
+            && matchesProblemTag(problem)
+            && matchesProblemAttention(problem);
     });
 
     if (state.filteredProblems.length === 0) {
@@ -341,12 +498,15 @@ function renderProblemList() {
             <div class="problem-card__meta">
                 <span class="difficulty ${difficultyClass(problem.difficulty)}">${problem.difficulty}</span>
                 <span class="badge">${problem.testCaseCount} sample</span>
-                <span class="badge">${problem.timeLimitMs ?? 5000} ms</span>
+                <span class="badge">${problem.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS} ms</span>
+                <span class="badge">${problem.memoryLimitMb ?? DEFAULT_MEMORY_LIMIT_MB} MB</span>
                 <span class="badge">${problem.submissionCount} submission</span>
                 ${state.currentUser ? `<span class="badge ${statusPillClass(problem.viewerStatus)}">You: ${escapeHtml(formatViewerStatus(problem.viewerStatus))}</span>` : ""}
+                ${state.currentUser && problem.viewerBookmarked ? `<span class="badge badge--accent-soft">Saved</span>` : ""}
                 ${hasProblemDraft(problem.id) ? `<span class="badge badge--accent">Draft</span>` : ""}
                 ${continueProblemId === problem.id ? `<span class="badge badge--accent">Continue</span>` : ""}
                 ${suggestedProblemId === problem.id ? `<span class="badge badge--accent-soft">Next</span>` : ""}
+                ${renderProblemAttentionBadges(problem)}
                 ${(problem.tags || []).slice(0, 2).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("")}
             </div>
         </article>
@@ -388,28 +548,497 @@ function renderGlobalLeaderboard() {
         </div>
         <div class="dashboard-card__section">
             <p class="dashboard-card__label">Top solvers</p>
-            <div class="dashboard-card__list">
-                ${leaderboard.entries.map((entry) => `
+                <div class="dashboard-card__list">
+                    ${leaderboard.entries.map((entry) => `
                     <article
-                        class="dashboard-card__item leaderboard-item ${entry.recentAcceptedProblemId ? "dashboard-card__item--interactive" : ""} ${entry.viewer ? "leaderboard-item--viewer" : ""}"
-                        ${entry.recentAcceptedProblemId ? `data-leaderboard-problem-id="${entry.recentAcceptedProblemId}"` : ""}
-                        ${entry.recentAcceptedProblemTitle ? `data-leaderboard-label="${escapeHtml(entry.recentAcceptedProblemTitle)}"` : ""}>
+                        class="dashboard-card__item leaderboard-item dashboard-card__item--interactive ${entry.viewer ? "leaderboard-item--viewer" : ""}"
+                        data-profile-username="${escapeHtml(entry.username || "")}">
                         <strong>#${entry.rank} ${escapeHtml(entry.username || "User")}</strong>
                         <p>${entry.solvedProblems ?? 0} solved | ${entry.acceptanceRate ?? 0}% accepted | ${escapeHtml(entry.mostUsedLanguage || "-")}</p>
                         <p>${entry.recentAcceptedProblemTitle ? `Son solved: ${escapeHtml(entry.recentAcceptedProblemTitle)} | ${formatDate(entry.recentAcceptedAt)}` : "Henuz accepted problemi yok."}</p>
+                        <span class="dashboard-card__hint">Public profile ac</span>
                     </article>
                 `).join("")}
             </div>
         </div>
     `;
 
-    refs.communityLeaderboardCard.querySelectorAll("[data-leaderboard-problem-id]").forEach((entry) => {
+    refs.communityLeaderboardCard.querySelectorAll("[data-profile-username]").forEach((entry) => {
         entry.addEventListener("click", () => {
-            void openDashboardProblem(
-                Number(entry.dataset.leaderboardProblemId),
-                null,
-                entry.dataset.leaderboardLabel || "Hall of Fame"
-            );
+            void openUserProfile(entry.dataset.profileUsername, { scrollIntoView: true });
+        });
+    });
+}
+
+function renderRunnerHealth() {
+    const health = state.runnerHealth;
+    if (!health || !health.runner) {
+        refs.runnerHealthCard.innerHTML = `
+            <div class="dashboard-card__header">
+                <div>
+                    <p class="panel__eyebrow panel__eyebrow--muted">Infra</p>
+                    <h3>Execution Runtime</h3>
+                </div>
+                <button
+                    type="button"
+                    class="button button--ghost button--small"
+                    data-runner-health-refresh
+                    ${state.runnerHealthRefreshing ? "disabled" : ""}>
+                    ${state.runnerHealthRefreshing ? "Refreshing..." : "Refresh"}
+                </button>
+            </div>
+            <div class="empty-state">Runner health bilgisi yuklenemedi.</div>
+        `;
+        return;
+    }
+
+    const runner = health.runner;
+    const judgeQueue = health.judgeQueue || null;
+    const requestedMode = runner.requestedMode || (runner.dockerEnabled ? "DOCKER" : "LOCAL");
+    const modeLabel = runner.mode || "LOCAL";
+    const dockerState = runner.dockerEnabled
+        ? (runner.dockerAvailable ? "Docker ready" : "Docker unavailable")
+        : "Docker off";
+    const judgeMode = health.judgeMode || "SYNC";
+    const message = runner.message || "Runner durumu hazir.";
+    const profiles = Array.isArray(health.profiles) && health.profiles.length > 0
+        ? health.profiles.join(", ")
+        : "default";
+    const checkedAt = runner.checkedAt ? formatDate(runner.checkedAt) : "Bilinmiyor";
+    const queueMarkup = judgeQueue ? `
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Judge queue</p>
+            <div class="workspace-card__breakdown">
+                <span class="badge ${judgeQueue.pressure === "BACKLOGGED" ? "badge--accent-soft" : ""}">${escapeHtml(judgeQueue.pressure || "IDLE")}</span>
+                <span class="badge">${judgeQueue.pendingSubmissions ?? 0} pending</span>
+                ${judgeQueue.oldestPendingAgeSeconds != null ? `<span class="badge">Oldest ${judgeQueue.oldestPendingAgeSeconds}s</span>` : ""}
+            </div>
+            <p class="dashboard-card__hint">${escapeHtml(judgeQueue.message || "Judge queue durumu hazir.")}</p>
+        </div>
+    ` : "";
+    const localToolchains = Array.isArray(runner.localToolchains) ? runner.localToolchains : [];
+    const toolchainMarkup = localToolchains.length > 0
+        ? `
+            <div class="dashboard-card__section">
+                <p class="dashboard-card__label">Local toolchains</p>
+                <div class="dashboard-card__list">
+                    ${localToolchains.map((toolchain) => `
+                        <article class="dashboard-card__item">
+                            <strong>${escapeHtml(toolchain.language || "LANG")}</strong>
+                            <p>${escapeHtml(toolchain.available ? "Ready" : "Missing")} | ${escapeHtml(toolchain.command || "-")}</p>
+                            <p>${escapeHtml(toolchain.version || toolchain.message || "No version info")}</p>
+                            ${toolchain.available || !toolchain.setupSummary ? "" : `<p>${escapeHtml(toolchain.setupSummary)}</p>`}
+                            ${toolchain.available || !toolchain.setupCommand ? "" : `
+                                <div class="dashboard-card__command">
+                                    <code>${escapeHtml(toolchain.setupCommand)}</code>
+                                    <button
+                                        type="button"
+                                        class="button button--ghost button--small"
+                                        data-copy-runtime-command="${escapeHtml(toolchain.setupCommand)}"
+                                        data-copy-runtime-language="${escapeHtml(toolchain.language || "Runtime")}">
+                                        Copy fix
+                                    </button>
+                                </div>
+                            `}
+                        </article>
+                    `).join("")}
+                </div>
+            </div>
+        `
+        : "";
+
+    refs.runnerHealthCard.innerHTML = `
+        <div class="dashboard-card__header">
+            <div>
+                <p class="panel__eyebrow panel__eyebrow--muted">Infra</p>
+                <h3>Execution Runtime</h3>
+            </div>
+            <div class="dashboard-card__actions">
+                <span class="badge ${runner.readiness === "READY" ? "badge--accent-soft" : ""}">${escapeHtml(runner.readiness || modeLabel)}</span>
+                <button
+                    type="button"
+                    class="button button--ghost button--small"
+                    data-runner-health-refresh
+                    ${state.runnerHealthRefreshing ? "disabled" : ""}>
+                    ${state.runnerHealthRefreshing ? "Refreshing..." : "Refresh"}
+                </button>
+            </div>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Runner mode</p>
+            <div class="workspace-card__breakdown">
+                <span class="badge">Judge: ${escapeHtml(judgeMode)}</span>
+                <span class="badge">Requested: ${escapeHtml(requestedMode)}</span>
+                <span class="badge ${runner.sandboxActive ? "badge--accent-soft" : ""}">Effective: ${escapeHtml(modeLabel)}</span>
+                <span class="badge">${escapeHtml(dockerState)}</span>
+                <span class="badge">Fallback: ${escapeHtml(runner.fallbackMode || "LOCAL")}</span>
+                <span class="badge">${runner.availableLanguageCount ?? 0}/${runner.supportedLanguageCount ?? 0} languages</span>
+                ${runner.dockerVersion ? `<span class="badge">Docker ${escapeHtml(runner.dockerVersion)}</span>` : ""}
+            </div>
+            <p class="dashboard-card__hint">Profile: ${escapeHtml(profiles)}</p>
+            <p class="dashboard-card__hint">Last checked: ${escapeHtml(checkedAt)}</p>
+            <p class="dashboard-card__hint">${escapeHtml(message)}</p>
+            ${runner.actionRequired && runner.actionMessage ? `<p class="dashboard-card__hint">${escapeHtml(runner.actionMessage)}</p>` : ""}
+        </div>
+        ${queueMarkup}
+        ${toolchainMarkup}
+    `;
+}
+
+function renderPreflightBanner() {
+    if (!refs.preflightBanner) {
+        return;
+    }
+
+    const runner = getRunnerHealthDescriptor();
+    if (!runner) {
+        refs.preflightBanner.hidden = true;
+        return;
+    }
+
+    const readiness = runner.readiness || "READY";
+    const queue = state.runnerHealth?.judgeQueue || null;
+    const available = runner.availableLanguageCount ?? 0;
+    const supported = runner.supportedLanguageCount ?? 0;
+    const headline = readiness === "READY"
+        ? "Runtime ready"
+        : readiness === "DEGRADED"
+            ? "Runtime degraded"
+            : "Runtime blocked";
+    const summary = readiness === "READY"
+        ? `Solve akisi hazir. ${available}/${supported} dil aktif.`
+        : readiness === "DEGRADED"
+            ? `Ortam kismen hazir. ${available}/${supported} dil aktif.`
+            : "Desteklenen diller icin calisabilir runtime bulunamadi.";
+    const firstMissingToolchain = Array.isArray(runner.localToolchains)
+        ? runner.localToolchains.find((toolchain) => toolchain.available === false)
+        : null;
+
+    refs.preflightBanner.hidden = false;
+    refs.preflightBanner.className = `preflight-banner preflight-banner--${readiness.toLowerCase()}`;
+    refs.preflightBanner.innerHTML = `
+        <strong>${escapeHtml(headline)}</strong>
+        <p>${escapeHtml(summary)}</p>
+        ${queue && (queue.pendingSubmissions ?? 0) > 0 ? `<p>Judge queue: ${escapeHtml(queue.message || `${queue.pendingSubmissions} pending`)}</p>` : ""}
+        ${runner.actionMessage ? `<p>${escapeHtml(runner.actionMessage)}</p>` : ""}
+        ${firstMissingToolchain?.setupCommand ? `<p>Quick fix: ${escapeHtml(firstMissingToolchain.language)} -> <code>${escapeHtml(firstMissingToolchain.setupCommand)}</code></p>` : ""}
+    `;
+}
+
+function getRunnerHealthDescriptor() {
+    return state.runnerHealth?.runner || null;
+}
+
+function isDockerExecutionActive() {
+    const runner = getRunnerHealthDescriptor();
+    return Boolean(runner?.sandboxActive && runner?.mode === "DOCKER");
+}
+
+function getLocalToolchainHealth(language) {
+    const runner = getRunnerHealthDescriptor();
+    if (!runner || !Array.isArray(runner.localToolchains)) {
+        return null;
+    }
+
+    return runner.localToolchains.find((toolchain) => toolchain.language === language) || null;
+}
+
+function getMissingLocalToolchains() {
+    const runner = getRunnerHealthDescriptor();
+    if (!runner || !Array.isArray(runner.localToolchains)) {
+        return [];
+    }
+
+    return runner.localToolchains.filter((toolchain) => toolchain.available === false);
+}
+
+function getFirstAvailableLanguage(excludedLanguage = null) {
+    const options = Array.from(refs.language.options);
+    const nextAvailable = options.find((option) => option.value !== excludedLanguage && isLanguageExecutionAvailable(option.value));
+    return nextAvailable?.value || null;
+}
+
+function resolveEditorLanguageRecommendation() {
+    if (!state.selectedProblemId) {
+        return null;
+    }
+
+    const tried = new Set();
+    const pushCandidate = (language, reason, priority, actionLabel = null) => {
+        if (!language || tried.has(language) || !isLanguageExecutionAvailable(language)) {
+            return null;
+        }
+        tried.add(language);
+        return { language, reason, priority, actionLabel };
+    };
+
+    const draftCandidate = listProblemDraftLanguages(state.selectedProblemId)
+        .find((entry) => isLanguageExecutionAvailable(entry.language));
+
+    const candidates = [
+        pushCandidate(
+            draftCandidate?.language,
+            draftCandidate?.updatedAt
+                ? `Bu problemde son draftin ${formatDate(draftCandidate.updatedAt)} kaydedildi`
+                : "Bu problemde kayitli bir draftin var",
+            0,
+            draftCandidate?.language ? `Resume ${draftCandidate.language} draft` : null
+        ),
+        pushCandidate(
+            state.workspaceSummary?.lastAcceptedLanguage,
+            "Bu problemde son accepted dilin",
+            1
+        ),
+        pushCandidate(
+            state.workspaceSummary?.lastSubmissionLanguage,
+            "Bu problemde son deneme dilin",
+            2
+        ),
+        pushCandidate(
+            state.userDashboard?.journeyFocus?.problemId === state.selectedProblemId
+                ? state.userDashboard?.journeyFocus?.suggestedLanguage
+                : null,
+            "Journey focus onerisi",
+            3
+        ),
+        pushCandidate(
+            state.problemStats?.mostUsedLanguage,
+            "Bu problemde toplulugun en sik kullandigi hazir dil",
+            4
+        ),
+        pushCandidate(
+            state.userDashboard?.mostSuccessfulLanguage,
+            "Accepted performansinin en guclu oldugu hazir dil",
+            5
+        ),
+        pushCandidate(
+            state.userDashboard?.mostUsedLanguage,
+            "En cok kullandigin hazir dil",
+            6
+        ),
+        pushCandidate(
+            getFirstAvailableLanguage(null),
+            "Bu ortamda hemen calisabilecek dil",
+            7
+        )
+    ].filter(Boolean);
+
+    return candidates.sort((left, right) => left.priority - right.priority)[0] || null;
+}
+
+function isLanguageExecutionAvailable(language) {
+    const runner = getRunnerHealthDescriptor();
+    if (!runner) {
+        return true;
+    }
+
+    if (isDockerExecutionActive()) {
+        return true;
+    }
+
+    const toolchain = getLocalToolchainHealth(language);
+    return toolchain ? Boolean(toolchain.available) : true;
+}
+
+function getLanguageExecutionMessage(language) {
+    const toolchain = getLocalToolchainHealth(language);
+    if (toolchain?.available === false) {
+        const parts = [
+            toolchain.message || `${language} runtime hazir degil.`,
+            toolchain.setupSummary || null,
+            toolchain.setupCommand ? `Try: ${toolchain.setupCommand}` : null
+        ].filter(Boolean);
+        return parts.join(" ");
+    }
+
+    const runner = getRunnerHealthDescriptor();
+    if (runner?.dockerEnabled && !runner.dockerAvailable) {
+        return runner.message || "Docker sandbox istenmis ama hazir degil.";
+    }
+
+    return null;
+}
+
+async function copyRuntimeCommand(command, language) {
+    if (!command) {
+        showFeedback("Kopyalanacak kurulum komutu bulunamadi.", "error");
+        return;
+    }
+
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(command);
+        } else {
+            copyTextFallback(command);
+        }
+        showFeedback(`${language || "Runtime"} icin fix komutu kopyalandi. Kurulumdan sonra Refresh ile tekrar kontrol et.`, "success");
+    } catch (error) {
+        showFeedback("Komut kopyalanamadi. Elle secip kopyalayabilirsin.", "error");
+    }
+}
+
+function switchEditorLanguage(language) {
+    if (!language || refs.language.value === language) {
+        return;
+    }
+
+    const previousLanguage = state.editorLanguageContext || refs.language.value;
+    persistDraftForContext(state.selectedProblemId, previousLanguage, refs.sourceCode.value);
+    refs.language.value = language;
+    state.editorLanguageContext = language;
+    updateEditorNote();
+    syncEditorForSelectedProblem();
+    showFeedback(`${language} secildi. Hazir runtime ile devam edebilirsin.`, "success");
+}
+
+function copyTextFallback(value) {
+    const probe = document.createElement("textarea");
+    probe.value = value;
+    probe.setAttribute("readonly", "readonly");
+    probe.style.position = "absolute";
+    probe.style.left = "-9999px";
+    document.body.appendChild(probe);
+    probe.select();
+    document.execCommand("copy");
+    document.body.removeChild(probe);
+}
+
+function refreshLanguageAvailability() {
+    const options = Array.from(refs.language.options);
+    const currentLanguage = refs.language.value;
+
+    options.forEach((option) => {
+        const available = isLanguageExecutionAvailable(option.value);
+        option.disabled = !available;
+        option.textContent = available ? option.value : `${option.value} (unavailable)`;
+    });
+
+    if (!isLanguageExecutionAvailable(currentLanguage)) {
+        const nextAvailable = options.find((option) => !option.disabled);
+        if (nextAvailable) {
+            const previousLanguage = state.editorLanguageContext || currentLanguage;
+            persistDraftForContext(state.selectedProblemId, previousLanguage, refs.sourceCode.value);
+            refs.language.value = nextAvailable.value;
+            state.editorLanguageContext = nextAvailable.value;
+            updateEditorNote();
+            syncEditorForSelectedProblem();
+            showFeedback(`${currentLanguage} bu ortamda hazir degil. ${nextAvailable.value} secildi.`, "idle");
+        }
+    }
+
+    updateEditorNote();
+    renderReplayBaseline();
+}
+
+function renderUserProfile() {
+    const profile = state.selectedUserProfile;
+    if (!profile) {
+        refs.userProfileCard.innerHTML = `
+            <div class="dashboard-card__header">
+                <div>
+                    <p class="panel__eyebrow panel__eyebrow--muted">Community</p>
+                    <h3>Public Profile</h3>
+                </div>
+            </div>
+            <div class="empty-state">Hall of Fame veya problem leaderboard'dan bir kullanici sec.</div>
+        `;
+        return;
+    }
+
+    const solvedByDifficulty = Object.entries(profile.solvedByDifficulty || {});
+    const recentAccepted = profile.recentAccepted || [];
+    const achievements = profile.achievements || [];
+    const journey = profile.journey;
+    const rankCopy = profile.globalRank
+        ? `#${profile.globalRank} / ${profile.totalRankedUsers ?? profile.globalRank}`
+        : "Henuz rank almadi";
+
+    refs.userProfileCard.innerHTML = `
+        <div class="dashboard-card__header">
+            <div>
+                <p class="panel__eyebrow panel__eyebrow--muted">Community</p>
+                <h3>Public Profile</h3>
+            </div>
+            <div class="workspace-card__actions">
+                ${profile.viewer ? `<span class="badge badge--accent-soft">You</span>` : ""}
+                <button type="button" class="button button--ghost button--small" data-clear-user-profile>Kapat</button>
+            </div>
+        </div>
+        <article class="dashboard-card__spotlight">
+            <strong>${escapeHtml(profile.username || "User")}</strong>
+            <p>${escapeHtml(rankCopy)} | ${escapeHtml(profile.mostUsedLanguage || "-")} | Joined ${formatDate(profile.joinedAt)}</p>
+            <span>${profile.lastSubmissionAt ? `Last active ${formatDate(profile.lastSubmissionAt)}` : "Henuz public aktivite yok."}</span>
+        </article>
+        <div class="dashboard-card__grid">
+            <article class="dashboard-card__stat">
+                <span>Solved</span>
+                <strong>${profile.solvedProblems ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Attempts</span>
+                <strong>${profile.totalSubmissions ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Accepted rate</span>
+                <strong>${profile.acceptanceRate ?? 0}%</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Active days</span>
+                <strong>${profile.activeDays ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Current streak</span>
+                <strong>${profile.currentAcceptedStreakDays ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Best streak</span>
+                <strong>${profile.longestAcceptedStreakDays ?? 0}</strong>
+            </article>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Solved by difficulty</p>
+            <div class="workspace-card__breakdown">
+                ${solvedByDifficulty.map(([difficulty, count]) => `<span class="badge ${difficultyClass(difficulty)}">${escapeHtml(difficulty)}: ${count}</span>`).join("")}
+            </div>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Journey</p>
+            ${renderJourneySection(journey, "profile")}
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Achievements</p>
+            ${achievements.length > 0 ? `
+                <div class="dashboard-card__list">
+                    ${achievements.map((achievement) => `
+                        <article class="dashboard-card__item">
+                            <strong>${escapeHtml(achievement.title || "Badge")}</strong>
+                            <p>${escapeHtml(achievement.description || "")}</p>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : `<p class="workspace-card__lead">Henuz rozet yok.</p>`}
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Recent solved</p>
+            ${recentAccepted.length > 0 ? `
+                <div class="dashboard-card__list">
+                    ${recentAccepted.map((entry) => `
+                        <article class="dashboard-card__item ${entry.problemId ? "dashboard-card__item--interactive" : ""}" ${entry.problemId ? `data-profile-problem-id="${entry.problemId}"` : ""}>
+                            <strong>${escapeHtml(entry.problemTitle || "Problem")}</strong>
+                            <p>${escapeHtml(entry.language || "-")} | ${entry.executionTime ?? 0} ms | ${formatDate(entry.acceptedAt)}</p>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : `<p class="workspace-card__lead">Henuz accepted problem yok.</p>`}
+        </div>
+    `;
+
+    refs.userProfileCard.querySelector("[data-clear-user-profile]")?.addEventListener("click", () => {
+        clearUserProfile();
+    });
+    refs.userProfileCard.querySelectorAll("[data-profile-problem-id]").forEach((entry) => {
+        entry.addEventListener("click", () => {
+            void openDashboardProblem(Number(entry.dataset.profileProblemId), null, "Public Profile");
         });
     });
 }
@@ -418,6 +1047,7 @@ function renderProblemFacets() {
     const tags = [...new Set(
         state.problems.flatMap((problem) => problem.tags || [])
     )].sort((left, right) => left.localeCompare(right));
+    const attentionBreakdown = buildCatalogAttentionBreakdown();
 
     refs.problemFacetCard.innerHTML = `
         <div class="facet-card__header">
@@ -444,6 +1074,18 @@ function renderProblemFacets() {
                     : `<span class="badge">Tag yok</span>`}
             </div>
         </div>
+        ${isAdmin() ? `
+            <div class="facet-card__section">
+                <p class="facet-card__label">Catalog curation</p>
+                <div class="filter-group">
+                    ${renderAdminAttentionButton("ALL", "Tum problemler")}
+                    ${renderAdminAttentionButton("ATTENTION", `Need attention (${state.catalogHealth?.problemsNeedingAttention ?? 0})`)}
+                    ${attentionBreakdown.length > 0
+                        ? attentionBreakdown.map(([flag, count]) => renderAdminAttentionButton(flag, `${formatCatalogAttentionFlag(flag)} (${count})`)).join("")
+                        : `<span class="badge">Attention yok</span>`}
+                </div>
+            </div>
+        ` : ""}
     `;
 
     refs.problemFacetCard.querySelectorAll("[data-difficulty-filter]").forEach((button) => {
@@ -455,6 +1097,12 @@ function renderProblemFacets() {
     refs.problemFacetCard.querySelectorAll("[data-tag-filter]").forEach((button) => {
         button.addEventListener("click", () => {
             setProblemTagFilter(button.dataset.tagFilter);
+        });
+    });
+
+    refs.problemFacetCard.querySelectorAll("[data-admin-attention-filter]").forEach((button) => {
+        button.addEventListener("click", () => {
+            setAdminAttentionFilter(button.dataset.adminAttentionFilter);
         });
     });
 }
@@ -477,11 +1125,29 @@ function renderSelectedProblem() {
     refs.viewerStatus.textContent = state.currentUser
         ? formatViewerStatus(state.selectedProblem.viewerStatus)
         : "Login";
-    refs.problemTimeLimit.textContent = `${state.selectedProblem.timeLimitMs ?? 5000} ms`;
+    refs.problemTimeLimit.textContent = `${state.selectedProblem.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS} ms`;
+    refs.problemMemoryLimit.textContent = `${state.selectedProblem.memoryLimitMb ?? DEFAULT_MEMORY_LIMIT_MB} MB`;
+    renderProblemBookmarkButton();
     renderProblemTags();
     renderProblemExamples();
     renderHint();
     renderEditorial();
+}
+
+function renderProblemBookmarkButton() {
+    if (!state.currentUser || !state.selectedProblem) {
+        refs.problemBookmarkButton.hidden = true;
+        refs.problemBookmarkButton.disabled = true;
+        refs.problemBookmarkButton.className = "button button--ghost button--small";
+        refs.problemBookmarkButton.textContent = "Save for later";
+        return;
+    }
+
+    const bookmarked = Boolean(state.selectedProblem.viewerBookmarked);
+    refs.problemBookmarkButton.hidden = false;
+    refs.problemBookmarkButton.disabled = false;
+    refs.problemBookmarkButton.className = `button button--ghost button--small ${bookmarked ? "button--soft" : ""}`;
+    refs.problemBookmarkButton.textContent = bookmarked ? "Saved" : "Save for later";
 }
 
 function renderProblemLeaderboard() {
@@ -513,12 +1179,66 @@ function renderProblemLeaderboard() {
         </div>
         <div class="dashboard-card__list">
             ${leaderboard.entries.map((entry) => `
-                <article class="dashboard-card__item leaderboard-item ${entry.viewer ? "leaderboard-item--viewer" : ""}">
+                <article class="dashboard-card__item dashboard-card__item--interactive leaderboard-item ${entry.viewer ? "leaderboard-item--viewer" : ""}" data-profile-username="${escapeHtml(entry.username || "")}">
                     <strong>#${entry.rank} ${escapeHtml(entry.username || "User")}</strong>
                     <p>${escapeHtml(entry.language || "-")} | ${entry.executionTime ?? 0} ms | ${entry.memoryUsage ?? 0} MB</p>
                     <p>${formatDate(entry.acceptedAt)}</p>
+                    <span class="dashboard-card__hint">Public profile ac</span>
                 </article>
             `).join("")}
+        </div>
+    `;
+
+    refs.problemLeaderboardCard.querySelectorAll("[data-profile-username]").forEach((entry) => {
+        entry.addEventListener("click", () => {
+            void openUserProfile(entry.dataset.profileUsername, { scrollIntoView: true });
+        });
+    });
+}
+
+function renderProblemStats() {
+    const stats = state.problemStats;
+    if (!state.selectedProblemId) {
+        refs.problemStatsCard.innerHTML = `<div class="empty-state">Problem secildiginde community snapshot burada gorunecek.</div>`;
+        return;
+    }
+
+    if (!stats) {
+        refs.problemStatsCard.innerHTML = `<p class="workspace-card__lead">Bu problem icin community stats verisi yuklenemedi.</p>`;
+        return;
+    }
+
+    const languageBreakdown = Object.entries(stats.languageBreakdown || {}).filter(([, count]) => count > 0);
+
+    refs.problemStatsCard.innerHTML = `
+        <div class="workspace-card__grid">
+            <article class="workspace-card__stat">
+                <span>Public submissions</span>
+                <strong>${stats.totalSubmissions ?? 0}</strong>
+            </article>
+            <article class="workspace-card__stat">
+                <span>Accepted users</span>
+                <strong>${stats.acceptedUsers ?? 0}</strong>
+            </article>
+            <article class="workspace-card__stat">
+                <span>Acceptance rate</span>
+                <strong>${stats.acceptanceRate ?? 0}%</strong>
+            </article>
+        </div>
+        <p class="workspace-card__lead">
+            ${stats.mostUsedLanguage ? `En aktif dil ${escapeHtml(stats.mostUsedLanguage)}.` : "Henuz public user submission'i yok."}
+            ${stats.latestAcceptedAt ? ` Son accepted: ${formatDate(stats.latestAcceptedAt)}.` : ""}
+        </p>
+        <div class="workspace-card__breakdown">
+            <span class="badge">Accepted runs: ${stats.acceptedSubmissions ?? 0}</span>
+            <span class="badge">Fastest: ${stats.fastestExecutionTime ?? "-"}${stats.fastestExecutionTime != null ? " ms" : ""}</span>
+            <span class="badge">Lowest memory: ${stats.lowestMemoryUsage ?? "-"}${stats.lowestMemoryUsage != null ? " MB" : ""}</span>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Language mix</p>
+            ${languageBreakdown.length > 0
+                ? `<div class="workspace-card__breakdown">${languageBreakdown.map(([language, count]) => `<span class="badge">${escapeHtml(language)}: ${count}</span>`).join("")}</div>`
+                : `<p class="workspace-card__meta">Bu problem icin public dil verisi henuz yok.</p>`}
         </div>
     `;
 }
@@ -589,6 +1309,11 @@ function renderSubmissions() {
             ${submission.verdictMessage ? `<p>${escapeHtml(submission.verdictMessage)}</p>` : ""}
             ${state.currentUser ? `
                 <div class="submission-card__actions">
+                    ${submission.status !== "PENDING" ? `
+                        <button type="button" class="button button--ghost button--small" data-resubmit-submission-id="${submission.id}">
+                            Tekrar gonder
+                        </button>
+                    ` : ""}
                     <button type="button" class="button button--ghost button--small ${state.selectedCompareSubmission?.id === submission.id ? "button--soft" : ""}" data-compare-submission-id="${submission.id}">
                         ${state.selectedCompareSubmission?.id === submission.id ? "Secili baseline" : "Baseline sec"}
                     </button>
@@ -603,6 +1328,12 @@ function renderSubmissions() {
     refs.submissionList.querySelectorAll("[data-load-submission-id]").forEach((button) => {
         button.addEventListener("click", () => {
             void loadSubmissionIntoEditor(Number(button.dataset.loadSubmissionId), "Secilen gonderim");
+        });
+    });
+
+    refs.submissionList.querySelectorAll("[data-resubmit-submission-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+            void resubmitExistingSubmission(Number(button.dataset.resubmitSubmissionId));
         });
     });
 
@@ -626,6 +1357,11 @@ async function submitSolution(event) {
         return;
     }
 
+    if (!isLanguageExecutionAvailable(refs.language.value)) {
+        showFeedback(getLanguageExecutionMessage(refs.language.value) || "Secili dil bu ortamda hazir degil.", "error");
+        return;
+    }
+
     const payload = {
         problemId: state.selectedProblemId,
         language: refs.language.value,
@@ -644,14 +1380,48 @@ async function submitSolution(event) {
             body: JSON.stringify(payload)
         });
 
+        if (submission.status === "PENDING") {
+            showFeedback("PENDING | Submission queue'ya alindi. Verdict bekleniyor...", "idle");
+            await selectProblem(state.selectedProblemId);
+            void pollSubmissionUntilSettled(submission.id, state.selectedProblemId);
+        } else {
+            showFeedback(buildSubmissionFeedbackMessage(submission), submission.status === "ACCEPTED" ? "success" : "error");
+
+            await Promise.all([
+                selectProblem(state.selectedProblemId),
+                loadUserDashboard(),
+                loadGlobalLeaderboard()
+            ]);
+        }
+    } catch (error) {
+        showFeedback(error.message, "error");
+    } finally {
+        refs.submitButton.disabled = false;
+        refs.submitButton.textContent = "Submit";
+    }
+}
+
+async function resubmitExistingSubmission(submissionId) {
+    if (!state.currentUser || !state.authToken) {
+        showFeedback("Bu islem icin once giris yap.", "error");
+        return;
+    }
+
+    try {
+        const submission = await fetchJson(`/api/submissions/${submissionId}/resubmit`, {
+            method: "POST",
+            headers: authHeaders()
+        });
+
+        if (submission.status === "PENDING") {
+            showFeedback("PENDING | Submission tekrar queue'ya alindi. Verdict bekleniyor...", "idle");
+            await selectProblem(state.selectedProblemId);
+            void pollSubmissionUntilSettled(submission.id, state.selectedProblemId);
+            return;
+        }
+
         showFeedback(
-            [
-                `${submission.status}`,
-                `${submission.passedTestCount}/${submission.totalTestCount} tests`,
-                `${submission.executionTime ?? 0} ms`,
-                `${submission.memoryUsage ?? 0} MB`,
-                submission.verdictMessage
-            ].filter(Boolean).join(" | "),
+            buildSubmissionFeedbackMessage(submission),
             submission.status === "ACCEPTED" ? "success" : "error"
         );
 
@@ -662,9 +1432,6 @@ async function submitSolution(event) {
         ]);
     } catch (error) {
         showFeedback(error.message, "error");
-    } finally {
-        refs.submitButton.disabled = false;
-        refs.submitButton.textContent = "Submit";
     }
 }
 
@@ -691,6 +1458,7 @@ async function login(event) {
             loadProblems(state.selectedProblemId),
             loadGlobalLeaderboard()
         ]);
+        await refreshSelectedUserProfile();
     } catch (error) {
         showAuthFeedback(error.message, "error");
     }
@@ -717,6 +1485,7 @@ async function register() {
             loadProblems(state.selectedProblemId),
             loadGlobalLeaderboard()
         ]);
+        await refreshSelectedUserProfile();
     } catch (error) {
         showAuthFeedback(error.message, "error");
     }
@@ -728,6 +1497,7 @@ async function logout() {
         loadProblems(state.selectedProblemId),
         loadGlobalLeaderboard()
     ]);
+    await refreshSelectedUserProfile();
 }
 
 async function createProblem(event) {
@@ -750,7 +1520,8 @@ async function createProblem(event) {
 
         refs.problemCreateForm.reset();
         refs.problemCreateDifficulty.value = "EASY";
-        refs.problemCreateTimeLimit.value = "5000";
+        refs.problemCreateTimeLimit.value = String(DEFAULT_TIME_LIMIT_MS);
+        refs.problemCreateMemoryLimit.value = String(DEFAULT_MEMORY_LIMIT_MB);
         showAuthorFeedback(`Problem olusturuldu: ${problem.title}`, "success");
         await loadProblems(problem.id);
     } catch (error) {
@@ -819,19 +1590,121 @@ function applyStarterTemplate(options = {}) {
 }
 
 function updateEditorNote() {
-    const timeLimitMs = state.selectedProblem?.timeLimitMs ?? 5000;
+    const timeLimitMs = state.selectedProblem?.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS;
+    const memoryLimitMb = state.selectedProblem?.memoryLimitMb ?? DEFAULT_MEMORY_LIMIT_MB;
+    const runtimeMessage = getLanguageExecutionMessage(refs.language.value);
+
+    if (runtimeMessage && !isLanguageExecutionAvailable(refs.language.value)) {
+        refs.editorNote.textContent = `${refs.language.value} su anda kullanilamiyor. ${runtimeMessage}`;
+        renderEditorLanguageRecommendation();
+        renderEditorRuntimeAssist();
+        return;
+    }
 
     if (refs.language.value === "JAVA") {
-        refs.editorNote.textContent = `JAVA gercek derlenir. Sure limiti: ${timeLimitMs} ms. Beklenen format: Solution.solve(...) veya Solution.main(...).`;
+        refs.editorNote.textContent = `JAVA gercek derlenir. Hedef limitler: ${timeLimitMs} ms / ${memoryLimitMb} MB. Beklenen format: Solution.solve(...) veya Solution.main(...).`;
+        renderEditorLanguageRecommendation();
+        renderEditorRuntimeAssist();
         return;
     }
 
     if (refs.language.value === "PYTHON") {
-        refs.editorNote.textContent = `PYTHON gercek calisir. Sure limiti: ${timeLimitMs} ms. stdin oku ve sonucu stdout'a yazdir.`;
+        refs.editorNote.textContent = `PYTHON gercek calisir. Hedef limitler: ${timeLimitMs} ms / ${memoryLimitMb} MB. stdin oku ve sonucu stdout'a yazdir.`;
+        renderEditorLanguageRecommendation();
+        renderEditorRuntimeAssist();
         return;
     }
 
-    refs.editorNote.textContent = `CPP gercek derlenir. Sure limiti: ${timeLimitMs} ms. stdin oku ve sonucu stdout'a yazdir.`;
+    refs.editorNote.textContent = `CPP gercek derlenir. Hedef limitler: ${timeLimitMs} ms / ${memoryLimitMb} MB. stdin oku ve sonucu stdout'a yazdir.`;
+    renderEditorLanguageRecommendation();
+    renderEditorRuntimeAssist();
+}
+
+function renderEditorLanguageRecommendation() {
+    const container = refs.editorLanguageRecommendation;
+    if (!container) {
+        return;
+    }
+
+    const recommendation = resolveEditorLanguageRecommendation();
+    if (!recommendation) {
+        container.hidden = true;
+        container.innerHTML = "";
+        return;
+    }
+
+    const currentLanguage = refs.language.value;
+    const active = recommendation.language === currentLanguage;
+    container.hidden = false;
+    container.innerHTML = `
+        <span class="badge badge--accent-soft">${active ? "Recommended active" : "Recommended now"}</span>
+        <p class="editor-language-recommendation__copy">
+            <strong>${escapeHtml(recommendation.language)}</strong>
+            ${escapeHtml(recommendation.reason)}.
+        </p>
+        ${active ? "" : `
+            <button
+                type="button"
+                class="button button--ghost button--small"
+                data-editor-recommended-language="${escapeHtml(recommendation.language)}">
+                ${escapeHtml(recommendation.actionLabel || `Use ${recommendation.language}`)}
+            </button>
+        `}
+    `;
+}
+
+function renderEditorRuntimeAssist() {
+    const assist = refs.editorRuntimeAssist;
+    if (!assist) {
+        return;
+    }
+
+    const missingToolchains = getMissingLocalToolchains();
+    const currentLanguage = refs.language.value;
+    const currentAvailable = isLanguageExecutionAvailable(currentLanguage);
+    const alternateLanguage = currentAvailable ? null : getFirstAvailableLanguage(currentLanguage);
+
+    if (missingToolchains.length === 0) {
+        assist.hidden = true;
+        assist.innerHTML = "";
+        return;
+    }
+
+    const lead = currentAvailable
+        ? `${currentLanguage} ile devam edebilirsin. Eksik runtime'lari acmak icin hizli fix aksiyonlari hazir.`
+        : `${currentLanguage} bu ortamda hazir degil. Alternatif bir dile gecebilir veya kurulum komutunu kopyalayabilirsin.`;
+
+    const switchAction = alternateLanguage
+        ? `<button type="button" class="button button--ghost button--small" data-editor-runtime-switch-language="${escapeHtml(alternateLanguage)}">Use ${escapeHtml(alternateLanguage)}</button>`
+        : "";
+    const fixActions = missingToolchains
+        .filter((toolchain) => toolchain.setupCommand)
+        .map((toolchain) => `
+            <button
+                type="button"
+                class="button button--ghost button--small"
+                data-copy-runtime-command="${escapeHtml(toolchain.setupCommand)}"
+                data-copy-runtime-language="${escapeHtml(toolchain.language || "Runtime")}">
+                Copy ${escapeHtml(toolchain.language || "fix")} fix
+            </button>
+        `)
+        .join("");
+
+    assist.hidden = false;
+    assist.innerHTML = `
+        <p class="editor-runtime-assist__copy">${escapeHtml(lead)}</p>
+        <div class="workspace-card__actions">
+            ${switchAction}
+            ${fixActions}
+            <button
+                type="button"
+                class="button button--ghost button--small"
+                data-runner-health-refresh
+                ${state.runnerHealthRefreshing ? "disabled" : ""}>
+                ${state.runnerHealthRefreshing ? "Refreshing..." : "Refresh runtime"}
+            </button>
+        </div>
+    `;
 }
 
 function renderProblemEmptyState(message = "Henuz listelenecek problem yok.") {
@@ -839,6 +1712,7 @@ function renderProblemEmptyState(message = "Henuz listelenecek problem yok.") {
     state.selectedProblemId = null;
     state.selectedProblem = null;
     state.problemLeaderboard = null;
+    state.problemStats = null;
     state.workspaceSummary = null;
     state.visibleTestCases = [];
     state.submissions = [];
@@ -858,10 +1732,12 @@ function renderProblemEmptyState(message = "Henuz listelenecek problem yok.") {
     refs.problemEditorialState.textContent = "Accepted gonderimden sonra acilir.";
     refs.problemEditorial.innerHTML = `<div class="empty-state">Editorial bilgisi yok.</div>`;
     refs.problemLeaderboardCard.innerHTML = `<div class="empty-state">Problem leaderboard verisi yok.</div>`;
+    renderProblemBookmarkButton();
     refs.visibleTestcaseCount.textContent = "0";
     refs.submissionCount.textContent = "0";
     refs.viewerStatus.textContent = "Login";
-    refs.problemTimeLimit.textContent = "5000 ms";
+    refs.problemTimeLimit.textContent = `${DEFAULT_TIME_LIMIT_MS} ms`;
+    refs.problemMemoryLimit.textContent = `${DEFAULT_MEMORY_LIMIT_MB} MB`;
     refs.problemTags.innerHTML = `<div class="empty-state">Tag yok.</div>`;
     refs.problemExampleList.innerHTML = `<div class="empty-state">Gosterilecek ornek yok.</div>`;
     refs.sampleList.innerHTML = `<div class="empty-state">${message}</div>`;
@@ -895,6 +1771,8 @@ function renderAuthState() {
     renderUserDashboard();
     renderGlobalLeaderboard();
     renderProblemLeaderboard();
+    renderProblemStats();
+    renderProblemBookmarkButton();
     renderReplayBaseline();
     renderReplayComparison();
     renderDraftStatus();
@@ -903,6 +1781,8 @@ function renderAuthState() {
 function renderAdminPanel() {
     const adminMode = isAdmin();
     refs.adminPanel.hidden = !adminMode;
+    renderCatalogHealth();
+    renderAuthoringFocusCard();
 
     if (!adminMode) {
         return;
@@ -944,6 +1824,222 @@ function renderAdminPanel() {
     });
 }
 
+function renderAuthoringFocusCard() {
+    if (!isAdmin()) {
+        refs.authoringFocusCard.innerHTML = `<div class="empty-state">Authoring Priorities yalnizca admin oturumunda gorunur.</div>`;
+        return;
+    }
+
+    if (!state.selectedProblem) {
+        refs.authoringFocusCard.innerHTML = `<div class="empty-state">Bir problem sec; eksik alanlara hizli gecis burada cikacak.</div>`;
+        return;
+    }
+
+    const attentionProblem = findCatalogAttentionProblem(state.selectedProblemId);
+    const attentionFlags = attentionProblem?.attentionFlags || [];
+    const nextAttentionProblem = resolveNextAttentionProblem();
+
+    refs.authoringFocusCard.innerHTML = `
+        <div class="dashboard-card__header">
+            <div>
+                <p class="panel__eyebrow panel__eyebrow--muted">Authoring Priorities</p>
+                <h3>${escapeHtml(state.selectedProblem.title || "Selected problem")}</h3>
+            </div>
+            <span class="badge ${attentionFlags.length === 0 ? "badge--accent-soft" : ""}">${attentionFlags.length === 0 ? "Healthy" : `${attentionFlags.length} gaps`}</span>
+        </div>
+        ${nextAttentionProblem ? `
+            <div class="dashboard-card__section">
+                <p class="dashboard-card__label">Next weak problem</p>
+                <article
+                    class="dashboard-card__spotlight dashboard-card__spotlight--interactive"
+                    data-authoring-next-problem-id="${nextAttentionProblem.problemId}">
+                    <strong>${escapeHtml(nextAttentionProblem.title || "Problem")}</strong>
+                    <p>${escapeHtml(nextAttentionProblem.difficulty || "-")} | ${(nextAttentionProblem.attentionFlags || []).length} gap</p>
+                    <span>${escapeHtml((nextAttentionProblem.attentionFlags || []).slice(0, 2).map((flag) => formatCatalogAttentionFlag(flag)).join(" • "))}</span>
+                </article>
+            </div>
+        ` : ""}
+        ${attentionFlags.length > 0 ? `
+            <div class="dashboard-card__section">
+                <p class="dashboard-card__label">Jump to missing pieces</p>
+                <div class="workspace-card__breakdown">
+                    ${attentionFlags.map((flag) => `
+                        <button
+                            type="button"
+                            class="button button--ghost button--small"
+                            data-authoring-gap-flag="${escapeHtml(flag)}">
+                            ${escapeHtml(formatCatalogAttentionFlag(flag))}
+                        </button>
+                    `).join("")}
+                </div>
+            </div>
+            <div class="dashboard-card__section">
+                <p class="dashboard-card__label">Suggested scaffolds</p>
+                <div class="workspace-card__breakdown">
+                    ${attentionFlags.map((flag) => `
+                        <button
+                            type="button"
+                            class="button button--ghost button--small"
+                            data-authoring-scaffold-flag="${escapeHtml(flag)}">
+                            ${escapeHtml(formatAuthoringScaffoldLabel(flag))}
+                        </button>
+                    `).join("")}
+                </div>
+            </div>
+        ` : `
+            <p class="workspace-card__lead">Bu problem mevcut kalite esigine gore saglikli gorunuyor. Yine de yeni edge case veya daha guclu editorial eklemek istersen form hazir.</p>
+        `}
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Quick jumps</p>
+            <div class="workspace-card__breakdown">
+                <button type="button" class="button button--ghost button--small" data-authoring-manual-target="STATEMENT">Statement</button>
+                <button type="button" class="button button--ghost button--small" data-authoring-manual-target="EXAMPLES">Examples</button>
+                <button type="button" class="button button--ghost button--small" data-authoring-manual-target="HINT">Hint</button>
+                <button type="button" class="button button--ghost button--small" data-authoring-manual-target="EDITORIAL">Editorial</button>
+                <button type="button" class="button button--ghost button--small" data-authoring-manual-target="TESTCASE">Testcases</button>
+            </div>
+        </div>
+    `;
+
+    refs.authoringFocusCard.querySelectorAll("[data-authoring-gap-flag]").forEach((button) => {
+        button.addEventListener("click", () => {
+            focusAuthoringTarget(button.dataset.authoringGapFlag);
+        });
+    });
+
+    refs.authoringFocusCard.querySelectorAll("[data-authoring-scaffold-flag]").forEach((button) => {
+        button.addEventListener("click", () => {
+            applyAuthoringScaffold(button.dataset.authoringScaffoldFlag);
+        });
+    });
+
+    refs.authoringFocusCard.querySelectorAll("[data-authoring-manual-target]").forEach((button) => {
+        button.addEventListener("click", () => {
+            focusAuthoringTarget(button.dataset.authoringManualTarget);
+        });
+    });
+
+    refs.authoringFocusCard.querySelectorAll("[data-authoring-next-problem-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+            void selectProblem(Number(button.dataset.authoringNextProblemId));
+        });
+    });
+}
+
+function renderCatalogHealth() {
+    if (!isAdmin()) {
+        refs.catalogHealthCard.innerHTML = `<div class="empty-state">Catalog Health yalnizca admin oturumunda gorunur.</div>`;
+        return;
+    }
+
+    const health = state.catalogHealth;
+    if (!health) {
+        refs.catalogHealthCard.innerHTML = `<div class="empty-state">Katalog sagligi yukleniyor.</div>`;
+        return;
+    }
+
+    const problemsByDifficulty = Object.entries(health.problemsByDifficulty || {});
+    const attentionProblems = health.attentionProblems || [];
+    const attentionBreakdown = buildCatalogAttentionBreakdown();
+    const focusedAttentionProblems = attentionProblems.filter(matchesCatalogAttentionProblem);
+    const activeAttentionLabel = state.adminAttentionFilter === "ALL"
+        ? "Tum problemler"
+        : state.adminAttentionFilter === "ATTENTION"
+            ? "Need attention"
+            : formatCatalogAttentionFlag(state.adminAttentionFilter);
+
+    refs.catalogHealthCard.innerHTML = `
+        <div class="dashboard-card__header">
+            <div>
+                <p class="panel__eyebrow panel__eyebrow--muted">Catalog Health</p>
+                <h3>Content Coverage</h3>
+            </div>
+            <span class="badge">${state.adminAttentionFilter === "ALL" ? `${health.problemsNeedingAttention ?? 0} attention` : activeAttentionLabel}</span>
+        </div>
+        <div class="dashboard-card__grid">
+            <article class="dashboard-card__stat">
+                <span>Problems</span>
+                <strong>${health.totalProblems ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Healthy</span>
+                <strong>${health.healthyProblems ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Public cases</span>
+                <strong>${health.publicTestCases ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Hidden cases</span>
+                <strong>${health.hiddenTestCases ?? 0}</strong>
+            </article>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Difficulty mix</p>
+            <div class="workspace-card__breakdown">
+                ${problemsByDifficulty.map(([difficulty, count]) => `<span class="badge ${difficultyClass(difficulty)}">${escapeHtml(difficulty)}: ${count}</span>`).join("")}
+            </div>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Attention focus</p>
+            <div class="filter-group">
+                ${renderAdminAttentionButton("ALL", "Tum problemler")}
+                ${renderAdminAttentionButton("ATTENTION", `Need attention (${health.problemsNeedingAttention ?? 0})`)}
+                ${attentionBreakdown.length > 0
+                    ? attentionBreakdown.map(([flag, count]) => renderAdminAttentionButton(flag, `${formatCatalogAttentionFlag(flag)} (${count})`)).join("")
+                    : `<span class="badge">Attention yok</span>`}
+            </div>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Attention queue</p>
+            ${focusedAttentionProblems.length > 0 ? `
+                <div class="dashboard-card__list">
+                    ${focusedAttentionProblems.map((problem) => `
+                        <article class="dashboard-card__item dashboard-card__item--attention dashboard-card__item--interactive" data-admin-problem-id="${problem.problemId}">
+                            <strong>${escapeHtml(problem.title || "Problem")}</strong>
+                            <p>${escapeHtml(problem.difficulty || "-")} | ${problem.totalTestCases ?? 0} total | ${problem.publicTestCases ?? 0} public | ${problem.hiddenTestCases ?? 0} hidden | ${problem.exampleCount ?? 0} examples</p>
+                            <div class="workspace-card__breakdown">
+                                ${(problem.attentionFlags || []).map((flag) => `
+                                    <button
+                                        type="button"
+                                        class="button button--ghost button--small ${state.adminAttentionFilter === flag ? "button--soft" : ""}"
+                                        data-admin-gap-problem-id="${problem.problemId}"
+                                        data-admin-gap-flag="${escapeHtml(flag)}">
+                                        ${escapeHtml(formatCatalogAttentionFlag(flag))}
+                                    </button>
+                                `).join("")}
+                            </div>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : `<p class="workspace-card__lead">${state.adminAttentionFilter === "ALL" ? "Su an belirgin dikkat isteyen problem gorunmuyor." : "Bu focus icin queue bos gorunuyor."}</p>`}
+        </div>
+    `;
+
+    refs.catalogHealthCard.querySelectorAll("[data-admin-problem-id]").forEach((entry) => {
+        entry.addEventListener("click", () => {
+            void selectProblem(Number(entry.dataset.adminProblemId));
+        });
+    });
+
+    refs.catalogHealthCard.querySelectorAll("[data-admin-attention-filter]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setAdminAttentionFilter(button.dataset.adminAttentionFilter);
+        });
+    });
+
+    refs.catalogHealthCard.querySelectorAll("[data-admin-gap-flag]").forEach((button) => {
+        button.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await openAuthoringGap(
+                Number(button.dataset.adminGapProblemId),
+                button.dataset.adminGapFlag
+            );
+        });
+    });
+}
+
 function showFeedback(message, type = "idle") {
     refs.submissionFeedback.textContent = message;
     refs.submissionFeedback.className = `feedback feedback--${type}`;
@@ -952,6 +2048,53 @@ function showFeedback(message, type = "idle") {
 function showAuthFeedback(message, type = "idle") {
     refs.authFeedback.textContent = message;
     refs.authFeedback.className = `auth-feedback auth-feedback--${type}`;
+}
+
+async function pollSubmissionUntilSettled(submissionId, problemId) {
+    for (let attempt = 0; attempt < SUBMISSION_POLL_MAX_ATTEMPTS; attempt += 1) {
+        await wait(SUBMISSION_POLL_INTERVAL_MS);
+
+        let detail;
+        try {
+            detail = await fetchJson(`/api/submissions/${submissionId}`, {
+                headers: authHeaders()
+            });
+        } catch (error) {
+            showFeedback(`Submission durumu alinamadi: ${error.message}`, "error");
+            return;
+        }
+
+        if (detail.status !== "PENDING") {
+            showFeedback(
+                buildSubmissionFeedbackMessage(detail),
+                detail.status === "ACCEPTED" ? "success" : "error"
+            );
+
+            await Promise.all([
+                state.selectedProblemId === problemId ? selectProblem(problemId) : Promise.resolve(),
+                loadUserDashboard(),
+                loadGlobalLeaderboard()
+            ]);
+            return;
+        }
+    }
+
+    showFeedback("Submission hala queue'da. Biraz sonra tekrar bakabilir ya da listeyi yenileyebilirsin.", "idle");
+    if (state.selectedProblemId === problemId) {
+        await selectProblem(problemId);
+    }
+}
+
+function buildSubmissionFeedbackMessage(submission) {
+    return [
+        submission.status,
+        typeof submission.passedTestCount === "number" && typeof submission.totalTestCount === "number"
+            ? `${submission.passedTestCount}/${submission.totalTestCount} tests`
+            : null,
+        typeof submission.executionTime === "number" ? `${submission.executionTime} ms` : null,
+        typeof submission.memoryUsage === "number" ? `${submission.memoryUsage} MB` : null,
+        submission.verdictMessage
+    ].filter(Boolean).join(" | ");
 }
 
 async function fetchJson(url, options = {}) {
@@ -967,6 +2110,12 @@ async function fetchJson(url, options = {}) {
     }
 
     return body;
+}
+
+function wait(durationMs) {
+    return new Promise((resolve) => {
+        window.setTimeout(resolve, durationMs);
+    });
 }
 
 function readAuthCredentials() {
@@ -987,6 +2136,8 @@ function applyAuthResponse(response, message) {
         username: response.username,
         role: response.role
     };
+    state.adminAttentionFilter = "ALL";
+    state.catalogHealth = null;
     state.globalLeaderboard = null;
     state.problemLeaderboard = null;
 
@@ -997,14 +2148,17 @@ function applyAuthResponse(response, message) {
 }
 
 function clearAuthState(showMessage) {
+    clearPendingDashboardRefresh();
     state.authToken = null;
     state.currentUser = null;
+    state.catalogHealth = null;
     state.userDashboard = null;
     state.globalLeaderboard = null;
     state.problemLeaderboard = null;
     state.problemScope = "ALL";
     state.problemDifficultyFilter = "ALL";
     state.problemTagFilter = "ALL";
+    state.adminAttentionFilter = "ALL";
     state.adminTestCases = [];
     state.editingTestCaseId = null;
     localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
@@ -1229,7 +2383,8 @@ function readProblemPayload() {
         editorialTitle: refs.problemCreateEditorialTitle.value.trim() || null,
         editorialContent: refs.problemCreateEditorialContent.value.trim() || null,
         difficulty: refs.problemCreateDifficulty.value,
-        timeLimitMs: Number(refs.problemCreateTimeLimit.value || 5000),
+        timeLimitMs: Number(refs.problemCreateTimeLimit.value || DEFAULT_TIME_LIMIT_MS),
+        memoryLimitMb: Number(refs.problemCreateMemoryLimit.value || DEFAULT_MEMORY_LIMIT_MB),
         tags: refs.problemCreateTags.value,
         examples: parseExamplesJson(refs.problemCreateExamples.value),
         starterCodes: parseStarterCodesJson(refs.problemCreateStarterCodes.value)
@@ -1254,7 +2409,8 @@ function populateProblemForm(problem) {
     refs.problemCreateEditorialTitle.value = problem.editorialTitle ?? "";
     refs.problemCreateEditorialContent.value = problem.editorialContent ?? "";
     refs.problemCreateDifficulty.value = problem.difficulty ?? "EASY";
-    refs.problemCreateTimeLimit.value = String(problem.timeLimitMs ?? 5000);
+    refs.problemCreateTimeLimit.value = String(problem.timeLimitMs ?? DEFAULT_TIME_LIMIT_MS);
+    refs.problemCreateMemoryLimit.value = String(problem.memoryLimitMb ?? DEFAULT_MEMORY_LIMIT_MB);
     refs.problemCreateTags.value = (problem.tags || []).join(", ");
     refs.problemCreateExamples.value = JSON.stringify(problem.examples || [], null, 2);
     refs.problemCreateStarterCodes.value = JSON.stringify(problem.starterCodes || {}, null, 2);
@@ -1263,7 +2419,8 @@ function populateProblemForm(problem) {
 function clearProblemForm() {
     refs.problemCreateForm.reset();
     refs.problemCreateDifficulty.value = "EASY";
-    refs.problemCreateTimeLimit.value = "5000";
+    refs.problemCreateTimeLimit.value = String(DEFAULT_TIME_LIMIT_MS);
+    refs.problemCreateMemoryLimit.value = String(DEFAULT_MEMORY_LIMIT_MB);
 }
 
 function resetTestCaseEditor() {
@@ -1401,7 +2558,13 @@ function renderUserDashboard() {
     const continueAttempt = dashboard.continueAttempt;
     const suggestedProblem = dashboard.suggestedProblem;
     const recentAttempted = dashboard.recentAttempted || [];
+    const recentPending = dashboard.recentPending || [];
+    const recentBookmarked = dashboard.recentBookmarked || [];
     const recentAccepted = dashboard.recentAccepted || [];
+    const recentActivity = dashboard.recentActivity || [];
+    const achievements = dashboard.achievements || [];
+    const journey = dashboard.journey;
+    const journeyFocus = dashboard.journeyFocus;
 
     refs.userDashboardCard.innerHTML = `
         <div class="dashboard-card__header">
@@ -1409,7 +2572,10 @@ function renderUserDashboard() {
                 <p class="panel__eyebrow panel__eyebrow--muted">Your Dashboard</p>
                 <h3>${escapeHtml(dashboard.username || "User")}</h3>
             </div>
-            <span class="badge">${dashboard.acceptanceRate ?? 0}% accepted</span>
+            <div class="workspace-card__actions">
+                <span class="badge">${dashboard.acceptanceRate ?? 0}% accepted</span>
+                <button type="button" class="button button--ghost button--small" data-dashboard-profile-username="${escapeHtml(dashboard.username || "")}">Public profile</button>
+            </div>
         </div>
         <div class="dashboard-card__grid">
             <article class="dashboard-card__stat">
@@ -1421,13 +2587,84 @@ function renderUserDashboard() {
                 <strong>${dashboard.totalSubmissions ?? 0}</strong>
             </article>
             <article class="dashboard-card__stat">
+                <span>Pending</span>
+                <strong>${dashboard.pendingSubmissions ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
                 <span>Remaining</span>
                 <strong>${dashboard.remainingProblems ?? 0}</strong>
+            </article>
+            <article class="dashboard-card__stat">
+                <span>Saved</span>
+                <strong>${dashboard.bookmarkedProblems ?? 0}</strong>
             </article>
             <article class="dashboard-card__stat">
                 <span>Main lang</span>
                 <strong>${escapeHtml(dashboard.mostUsedLanguage || "-")}</strong>
             </article>
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Momentum</p>
+            <p class="workspace-card__lead">
+                ${dashboard.activeDays ?? 0} active day | current streak ${dashboard.currentAcceptedStreakDays ?? 0} | best ${dashboard.longestAcceptedStreakDays ?? 0}
+            </p>
+            ${recentActivity.length > 0 ? `
+                <div class="activity-strip">
+                    ${recentActivity.map((entry) => `
+                        <article class="activity-cell ${activityCellClass(entry)}">
+                            <span>${escapeHtml(formatShortDate(entry.date))}</span>
+                            <strong>${entry.submissions ?? 0}</strong>
+                            <small>${entry.accepted ?? 0} acc</small>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : `<p class="workspace-card__lead">Aktivite akisi henuz olusmadi.</p>`}
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Pending queue</p>
+            ${recentPending.length > 0 ? `
+                <p class="workspace-card__lead">Async judge calisiyor. Queue otomatik yenileniyor.</p>
+                <div class="dashboard-card__list">
+                    ${recentPending.map((entry) => `
+                        <article
+                            class="dashboard-card__item dashboard-card__item--interactive"
+                            data-dashboard-problem-id="${entry.problemId}"
+                            data-dashboard-submission-id="${entry.submissionId}"
+                            data-dashboard-label="Pending queue">
+                            <strong>${escapeHtml(entry.problemTitle || "Problem")}</strong>
+                            <p>${escapeHtml(entry.language || "-")} | ${escapeHtml(formatViewerStatus(entry.status))} | ${formatDate(entry.lastActivityAt)}</p>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : `<p class="workspace-card__lead">Bekleyen submission yok.</p>`}
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Journey</p>
+            ${renderJourneySection(journey, "dashboard")}
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Journey Focus</p>
+            ${journeyFocus ? `
+                <article
+                    class="dashboard-card__spotlight dashboard-card__spotlight--interactive"
+                    data-dashboard-problem-id="${journeyFocus.problemId}"
+                    data-dashboard-language="${escapeHtml(journeyFocus.suggestedLanguage || "")}"
+                    data-dashboard-prime-sample="true"
+                    data-dashboard-label="Journey focus">
+                    <strong>${escapeHtml(journeyFocus.problemTitle || "Problem")}</strong>
+                    <p>${escapeHtml(journeyFocus.goalTitle || "Journey goal")} | ${escapeHtml(journeyFocus.difficulty || "-")} | ${escapeHtml(formatViewerStatus(journeyFocus.status))}</p>
+                    <span>${escapeHtml(journeyFocus.reason || "")}</span>
+                    ${journeyFocus.suggestedLanguage ? `<span class="badge badge--accent-soft">Try ${escapeHtml(journeyFocus.suggestedLanguage)}</span>` : ""}
+                </article>
+            ` : `<p class="workspace-card__lead">Journey hedefine gore ozel bir focus onerisi henuz yok.</p>`}
+        </div>
+        <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Achievements</p>
+            ${achievements.length > 0 ? `
+                <div class="workspace-card__breakdown">
+                    ${achievements.map((achievement) => `<span class="badge badge--accent-soft" title="${escapeHtml(achievement.description || "")}">${escapeHtml(achievement.title || "Badge")}</span>`).join("")}
+                </div>
+            ` : `<p class="workspace-card__lead">Ilk accepted ile ilk rozetini acacaksin.</p>`}
         </div>
         <div class="dashboard-card__section">
             <p class="dashboard-card__label">Continue where you left off</p>
@@ -1479,6 +2716,22 @@ function renderUserDashboard() {
             ` : `<p class="workspace-card__lead">Henuz solved olmayan deneme yok.</p>`}
         </div>
         <div class="dashboard-card__section">
+            <p class="dashboard-card__label">Saved queue</p>
+            ${recentBookmarked.length > 0 ? `
+                <div class="dashboard-card__list">
+                    ${recentBookmarked.map((entry) => `
+                        <article
+                            class="dashboard-card__item dashboard-card__item--interactive"
+                            data-dashboard-problem-id="${entry.problemId}"
+                            data-dashboard-label="Saved queue">
+                            <strong>${escapeHtml(entry.problemTitle || "Problem")}</strong>
+                            <p>${escapeHtml(entry.difficulty || "-")} | ${escapeHtml(formatViewerStatus(entry.status))} | Saved ${formatDate(entry.bookmarkedAt)}</p>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : `<p class="workspace-card__lead">Kaydedilen problem yok. Bir problemi Save for later ile kuyruğa ekleyebilirsin.</p>`}
+        </div>
+        <div class="dashboard-card__section">
             <p class="dashboard-card__label">Language mix</p>
             ${languageBreakdown.length > 0
                 ? `<div class="workspace-card__breakdown">${languageBreakdown.map(([language, count]) => `<span class="badge">${escapeHtml(language)}: ${count}</span>`).join("")}</div>`
@@ -1503,11 +2756,62 @@ function renderUserDashboard() {
         entry.addEventListener("click", () => {
             void openDashboardProblem(
                 Number(entry.dataset.dashboardProblemId),
-                entry.dataset.dashboardSubmissionId ? Number(entry.dataset.dashboardSubmissionId) : null,
-                entry.dataset.dashboardLabel || "Dashboard"
+                {
+                    submissionId: entry.dataset.dashboardSubmissionId ? Number(entry.dataset.dashboardSubmissionId) : null,
+                    label: entry.dataset.dashboardLabel || "Dashboard",
+                    suggestedLanguage: entry.dataset.dashboardLanguage || null,
+                    primeSample: entry.dataset.dashboardPrimeSample === "true"
+                }
             );
         });
     });
+    refs.userDashboardCard.querySelector("[data-dashboard-profile-username]")?.addEventListener("click", () => {
+        void openUserProfile(dashboard.username, { scrollIntoView: true });
+    });
+}
+
+function clearPendingDashboardRefresh() {
+    if (state.pendingDashboardRefreshTimerId) {
+        window.clearTimeout(state.pendingDashboardRefreshTimerId);
+        state.pendingDashboardRefreshTimerId = null;
+    }
+}
+
+function schedulePendingDashboardRefresh() {
+    clearPendingDashboardRefresh();
+
+    if (!state.currentUser || !state.userDashboard || (state.userDashboard.pendingSubmissions ?? 0) < 1) {
+        return;
+    }
+
+    state.pendingDashboardRefreshTimerId = window.setTimeout(() => {
+        state.pendingDashboardRefreshTimerId = null;
+        void refreshPendingSubmissionViews();
+    }, DASHBOARD_PENDING_REFRESH_MS);
+}
+
+async function refreshPendingSubmissionViews() {
+    if (!state.currentUser || !state.authToken) {
+        clearPendingDashboardRefresh();
+        return;
+    }
+
+    const shouldRefreshSelectedProblem = Boolean(
+        state.selectedProblemId && (
+            state.workspaceSummary?.lastStatus === "PENDING"
+            || (state.submissions || []).some((submission) => submission.status === "PENDING")
+        )
+    );
+
+    await loadUserDashboard();
+
+    if (shouldRefreshSelectedProblem && state.selectedProblemId) {
+        await selectProblem(state.selectedProblemId);
+    }
+
+    if ((state.userDashboard?.pendingSubmissions ?? 0) === 0) {
+        await loadGlobalLeaderboard();
+    }
 }
 
 function renderDraftStatus() {
@@ -1586,6 +2890,7 @@ function renderProgressSummary() {
         && problem.viewerStatus !== "NOT_STARTED"
         && problem.viewerStatus !== "ACCEPTED"
     ).length;
+    const bookmarked = state.problems.filter((problem) => problem.viewerBookmarked).length;
     const remaining = Math.max(state.problems.length - solved, 0);
 
     refs.progressSummary.innerHTML = `
@@ -1602,12 +2907,17 @@ function renderProgressSummary() {
                 <span>Remaining</span>
                 <strong>${remaining}</strong>
             </article>
+            <article class="progress-summary__card">
+                <span>Saved</span>
+                <strong>${bookmarked}</strong>
+            </article>
         </div>
         <div class="filter-group">
             ${renderProblemScopeButton("ALL", "Tum")}
             ${renderProblemScopeButton("REMAINING", "Remaining")}
             ${renderProblemScopeButton("ATTEMPTED", "Attempted")}
             ${renderProblemScopeButton("SOLVED", "Solved")}
+            ${renderProblemScopeButton("BOOKMARKED", "Saved")}
         </div>
     `;
 
@@ -1639,6 +2949,24 @@ function loadReplayFromCase(input, expectedOutput, label) {
         message: `${label} replay paneline tasindi.`
     });
     renderReplayComparison();
+}
+
+function primeReplayFromFirstSample() {
+    if (state.visibleTestCases.length === 0) {
+        return false;
+    }
+
+    if (refs.replayInput.value.trim() || refs.replayExpectedOutput.value.trim()) {
+        return false;
+    }
+
+    const sample = state.visibleTestCases[0];
+    if (!sample) {
+        return false;
+    }
+
+    loadReplayFromCase(sample.input, sample.expectedOutput, "Ilk sample");
+    return true;
 }
 
 function loadReplayFromFailure(summary) {
@@ -1711,11 +3039,17 @@ function renderReplayBaseline() {
         return;
     }
 
+    const baselineAvailable = isLanguageExecutionAvailable(state.selectedCompareSubmission.language);
+    const baselineWarning = baselineAvailable
+        ? ""
+        : `<p class="workspace-card__hint">${escapeHtml(getLanguageExecutionMessage(state.selectedCompareSubmission.language) || "Bu dil su anda hazir degil.")}</p>`;
+
     refs.replayBaselineCard.innerHTML = `
         <div class="replay-baseline">
             <div>
                 <p class="workspace-debug__eyebrow">Submission Baseline</p>
                 <p><strong>#${state.selectedCompareSubmission.id}</strong> | ${escapeHtml(state.selectedCompareSubmission.status)} | ${escapeHtml(state.selectedCompareSubmission.language)}</p>
+                ${baselineWarning}
             </div>
             <button type="button" class="button button--ghost button--small" data-clear-replay-baseline>Baseline'i temizle</button>
         </div>
@@ -2103,7 +3437,8 @@ function normalizeProblemPayload(payload) {
         editorialTitle: String(payload.editorialTitle ?? "").trim() || null,
         editorialContent: String(payload.editorialContent ?? "").trim() || null,
         difficulty: String(payload.difficulty ?? "").trim().toUpperCase(),
-        timeLimitMs: Number(payload.timeLimitMs || 5000),
+        timeLimitMs: Number(payload.timeLimitMs || DEFAULT_TIME_LIMIT_MS),
+        memoryLimitMb: Number(payload.memoryLimitMb || DEFAULT_MEMORY_LIMIT_MB),
         tags: tags.map((tag) => String(tag).trim()).filter(Boolean),
         examples: normalizedExamples,
         starterCodes: normalizedStarterCodes,
@@ -2214,15 +3549,101 @@ async function loadSubmissionIntoEditor(submissionId, label) {
     }
 }
 
-async function openDashboardProblem(problemId, submissionId, label) {
+async function openDashboardProblem(problemId, options = {}) {
     if (!problemId) {
         return;
     }
 
+    const submissionId = options.submissionId ?? null;
+    const label = options.label || "Dashboard";
+    const suggestedLanguage = options.suggestedLanguage || null;
+    const primeSample = options.primeSample === true;
+
     await selectProblem(problemId);
+
+    if (suggestedLanguage && refs.language.value !== suggestedLanguage) {
+        refs.language.value = suggestedLanguage;
+        handleLanguageChange();
+    }
+
+    const replayPrimed = primeSample ? primeReplayFromFirstSample() : false;
+
+    refs.sourceCode.scrollIntoView({ behavior: "smooth", block: "center" });
+    refs.sourceCode.focus();
 
     if (submissionId && state.currentUser && state.authToken) {
         await loadSubmissionIntoEditor(submissionId, label);
+        return;
+    }
+
+    const feedbackParts = [`${label} acildi.`];
+    if (suggestedLanguage) {
+        feedbackParts.push(`${suggestedLanguage} odagi editor'e uygulandi.`);
+    }
+    if (replayPrimed) {
+        feedbackParts.push("Ilk sample replay paneline tasindi.");
+    }
+    showFeedback(feedbackParts.join(" "), "success");
+}
+
+async function openUserProfile(username, options = {}) {
+    if (!username) {
+        return;
+    }
+
+    try {
+        state.selectedUserProfile = await fetchJson(`/api/users/${encodeURIComponent(username)}/profile`, {
+            headers: authHeaders()
+        });
+        renderUserProfile();
+        if (options.scrollIntoView !== false) {
+            refs.userProfileCard.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    } catch (error) {
+        state.selectedUserProfile = null;
+        renderUserProfile();
+        showFeedback(error.message, "error");
+    }
+}
+
+function clearUserProfile() {
+    state.selectedUserProfile = null;
+    renderUserProfile();
+}
+
+async function toggleProblemBookmark() {
+    if (!state.currentUser || !state.authToken) {
+        showFeedback("Save for later icin once giris yap.", "error");
+        return;
+    }
+
+    if (!state.selectedProblemId || !state.selectedProblem) {
+        showFeedback("Once bir problem sec.", "error");
+        return;
+    }
+
+    const bookmarked = Boolean(state.selectedProblem.viewerBookmarked);
+
+    try {
+        refs.problemBookmarkButton.disabled = true;
+        refs.problemBookmarkButton.textContent = bookmarked ? "Removing..." : "Saving...";
+
+        await fetchJson(`/api/problems/${state.selectedProblemId}/bookmark`, {
+            method: bookmarked ? "DELETE" : "POST",
+            headers: authHeaders()
+        });
+
+        showFeedback(
+            bookmarked
+                ? "Problem saved queue'dan cikarildi."
+                : "Problem save for later kuyruguna eklendi.",
+            "success"
+        );
+
+        await loadProblems(state.selectedProblemId);
+    } catch (error) {
+        renderProblemBookmarkButton();
+        showFeedback(error.message, "error");
     }
 }
 
@@ -2242,6 +3663,21 @@ async function runReplay(event) {
 
     if (!refs.sourceCode.value.trim()) {
         renderReplayResult({ state: "prefilled", message: "Replay icin editor bos olamaz." });
+        return;
+    }
+
+    if (!isLanguageExecutionAvailable(refs.language.value)) {
+        const message = getLanguageExecutionMessage(refs.language.value) || "Secili dil bu ortamda hazir degil.";
+        renderReplayResult({ state: "prefilled", message });
+        showFeedback(message, "error");
+        return;
+    }
+
+    if (state.selectedCompareSubmission && !isLanguageExecutionAvailable(state.selectedCompareSubmission.language)) {
+        const baselineMessage = getLanguageExecutionMessage(state.selectedCompareSubmission.language)
+            || `${state.selectedCompareSubmission.language} baseline'i bu ortamda calisamiyor.`;
+        renderReplayResult({ state: "prefilled", message: baselineMessage });
+        showFeedback(baselineMessage, "error");
         return;
     }
 
@@ -2364,6 +3800,10 @@ function matchesProblemScope(problem) {
         return !problem.viewerSolved;
     }
 
+    if (state.problemScope === "BOOKMARKED") {
+        return Boolean(problem.viewerBookmarked);
+    }
+
     return true;
 }
 
@@ -2373,6 +3813,19 @@ function matchesProblemDifficulty(problem) {
 
 function matchesProblemTag(problem) {
     return state.problemTagFilter === "ALL" || (problem.tags || []).includes(state.problemTagFilter);
+}
+
+function matchesProblemAttention(problem) {
+    if (!isAdmin() || state.adminAttentionFilter === "ALL") {
+        return true;
+    }
+
+    const attentionFlags = problemAttentionFlags(problem.id);
+    if (state.adminAttentionFilter === "ATTENTION") {
+        return attentionFlags.length > 0;
+    }
+
+    return attentionFlags.includes(state.adminAttentionFilter);
 }
 
 function setProblemScope(scope) {
@@ -2390,6 +3843,13 @@ function setProblemDifficultyFilter(filter) {
 function setProblemTagFilter(filter) {
     state.problemTagFilter = filter || "ALL";
     renderProblemFacets();
+    renderProblemList();
+}
+
+function setAdminAttentionFilter(filter) {
+    state.adminAttentionFilter = filter || "ALL";
+    renderProblemFacets();
+    renderCatalogHealth();
     renderProblemList();
 }
 
@@ -2417,6 +3877,356 @@ function renderFacetButton(kind, value, label, selectedValue) {
             ${dataAttribute}>
             ${escapeHtml(label)}
         </button>
+    `;
+}
+
+function renderAdminAttentionButton(value, label) {
+    return `
+        <button
+            type="button"
+            class="button button--ghost button--small ${state.adminAttentionFilter === value ? "button--soft" : ""}"
+            data-admin-attention-filter="${escapeHtml(value)}">
+            ${escapeHtml(label)}
+        </button>
+    `;
+}
+
+async function openAuthoringGap(problemId, flag) {
+    if (!isAdmin()) {
+        return;
+    }
+
+    if (problemId && state.selectedProblemId !== problemId) {
+        await selectProblem(problemId);
+    }
+
+    focusAuthoringTarget(flag);
+}
+
+function resolveNextAttentionProblem() {
+    const queue = (state.catalogHealth?.attentionProblems || []).filter((problem) =>
+        problem.problemId !== state.selectedProblemId && matchesCatalogAttentionProblem(problem)
+    );
+
+    if (queue.length > 0) {
+        return queue[0];
+    }
+
+    return (state.catalogHealth?.attentionProblems || []).find((problem) => problem.problemId !== state.selectedProblemId) || null;
+}
+
+function applyAuthoringScaffold(flag) {
+    const normalizedFlag = String(flag || "").toUpperCase();
+
+    try {
+        switch (normalizedFlag) {
+            case "LOW_EXAMPLE_DEPTH":
+                insertExampleScaffold();
+                focusAuthoringTarget("EXAMPLES", { suppressMessage: true });
+                return;
+            case "MISSING_HINT":
+                insertHintScaffold();
+                focusAuthoringTarget("HINT", { suppressMessage: true });
+                return;
+            case "MISSING_EDITORIAL":
+                insertEditorialScaffold();
+                focusAuthoringTarget("EDITORIAL", { suppressMessage: true });
+                return;
+            case "NEEDS_PUBLIC_SAMPLE":
+                insertTestCaseScaffold(buildPublicSampleScaffold());
+                focusAuthoringTarget("NEEDS_PUBLIC_SAMPLE", { suppressMessage: true });
+                return;
+            case "NEEDS_HIDDEN_DEPTH":
+                insertTestCaseScaffold(buildHiddenDepthScaffold());
+                focusAuthoringTarget("NEEDS_HIDDEN_DEPTH", { suppressMessage: true });
+                return;
+            case "LOW_TOTAL_CASE_COVERAGE":
+                insertTestCaseScaffold(buildCoverageScaffold());
+                focusAuthoringTarget("LOW_TOTAL_CASE_COVERAGE", { suppressMessage: true });
+                return;
+            default:
+                focusAuthoringTarget(normalizedFlag);
+        }
+    } catch (error) {
+        showAuthorFeedback(error.message || "Scaffold uygulanamadi.", "error");
+    }
+}
+
+function focusAuthoringTarget(target, options = {}) {
+    const normalizedTarget = String(target || "").toUpperCase();
+    const suppressMessage = Boolean(options.suppressMessage);
+    let input = null;
+    let message = null;
+
+    switch (normalizedTarget) {
+        case "STATEMENT":
+            input = refs.problemCreateDescription;
+            message = "Problem statement alani odakta.";
+            break;
+        case "EXAMPLES":
+        case "LOW_EXAMPLE_DEPTH":
+            input = refs.problemCreateExamples;
+            message = "Example alanina odaklanildi.";
+            break;
+        case "HINT":
+        case "MISSING_HINT":
+            input = refs.problemCreateHintTitle;
+            message = "Hint alanina odaklanildi.";
+            break;
+        case "EDITORIAL":
+        case "MISSING_EDITORIAL":
+            input = refs.problemCreateEditorialTitle;
+            message = "Editorial alanina odaklanildi.";
+            break;
+        case "TESTCASE":
+            input = refs.testCaseInput;
+            message = "Testcase editoru odakta.";
+            break;
+        case "NEEDS_PUBLIC_SAMPLE":
+            refs.testCaseHidden.checked = false;
+            input = refs.testCaseInput;
+            message = "Public testcase depth artirmak icin testcase editoru odakta.";
+            break;
+        case "NEEDS_HIDDEN_DEPTH":
+            refs.testCaseHidden.checked = true;
+            input = refs.testCaseInput;
+            message = "Hidden testcase eklemek icin testcase editoru odakta.";
+            break;
+        case "LOW_TOTAL_CASE_COVERAGE":
+            input = refs.testCaseBulkPayload;
+            message = "Case coverage artirmak icin bulk testcase alani odakta.";
+            break;
+        default:
+            input = refs.problemCreateDescription;
+            message = "Authoring editoru odakta.";
+            break;
+    }
+
+    if (input) {
+        input.scrollIntoView({ behavior: "smooth", block: "center" });
+        input.focus({ preventScroll: true });
+    }
+
+    if (message && !suppressMessage) {
+        showAuthorFeedback(message, "idle");
+    }
+}
+
+function insertExampleScaffold() {
+    const existingExamples = parseExamplesJson(refs.problemCreateExamples.value);
+    const nextIndex = existingExamples.length + 1;
+    const scaffold = {
+        input: existingExamples.length === 0 ? "REPLACE_WITH_SAMPLE_INPUT" : `REPLACE_WITH_EXAMPLE_${nextIndex}_INPUT`,
+        output: existingExamples.length === 0 ? "REPLACE_WITH_SAMPLE_OUTPUT" : `REPLACE_WITH_EXAMPLE_${nextIndex}_OUTPUT`,
+        explanation: existingExamples.length === 0
+            ? "Aciklamayi problemi anlatacak sekilde guncelle."
+            : `Example ${nextIndex} neden onemli, kisaca acikla.`
+    };
+
+    refs.problemCreateExamples.value = JSON.stringify([...existingExamples, scaffold], null, 2);
+    showAuthorFeedback("Examples alanina yeni bir scaffold eklendi.", "success");
+}
+
+function insertHintScaffold() {
+    if (!refs.problemCreateHintTitle.value.trim()) {
+        refs.problemCreateHintTitle.value = `First step for ${state.selectedProblem?.title || "this problem"}`;
+    }
+
+    if (!refs.problemCreateHintContent.value.trim()) {
+        refs.problemCreateHintContent.value = [
+            "1. Kucuk inputlarla oruntuyu gozlemle.",
+            "2. Sonucu direkt hesaplatan bir kalip veya formul aramayi dene.",
+            "3. Hidden case'lerde hangi edge durumlarin patlayabilecegini not et."
+        ].join("\n");
+        showAuthorFeedback("Hint scaffold'i yerlestirildi.", "success");
+        return;
+    }
+
+    showAuthorFeedback("Hint alani zaten dolu; sadece odaklandi.", "idle");
+}
+
+function insertEditorialScaffold() {
+    if (!refs.problemCreateEditorialTitle.value.trim()) {
+        refs.problemCreateEditorialTitle.value = `${state.selectedProblem?.title || "Problem"} solution outline`;
+    }
+
+    if (!refs.problemCreateEditorialContent.value.trim()) {
+        refs.problemCreateEditorialContent.value = [
+            "Approach:",
+            "- Ana fikri bir iki cumlede acikla.",
+            "",
+            "Why it works:",
+            "- Cozumu dogrulayan mantigi yaz.",
+            "",
+            "Complexity:",
+            "- Time complexity:",
+            "- Memory complexity:",
+            "",
+            "Edge cases:",
+            "- Hangi sinir durumlarina dikkat edildigini not et."
+        ].join("\n");
+        showAuthorFeedback("Editorial scaffold'i yerlestirildi.", "success");
+        return;
+    }
+
+    showAuthorFeedback("Editorial alani zaten dolu; sadece odaklandi.", "idle");
+}
+
+function insertTestCaseScaffold(scaffoldCases) {
+    const existingCases = parseTestCaseBulkPayload(refs.testCaseBulkPayload.value);
+    refs.testCaseBulkPayload.value = JSON.stringify([...existingCases, ...scaffoldCases], null, 2);
+    showAuthorFeedback(`${scaffoldCases.length} testcase scaffold'i hazirlandi.`, "success");
+}
+
+function parseTestCaseBulkPayload(rawPayload) {
+    const trimmed = rawPayload.trim();
+    if (!trimmed) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(trimmed);
+        const testCases = Array.isArray(parsed) ? parsed : parsed?.testCases;
+        if (!Array.isArray(testCases)) {
+            throw new Error("Bulk testcase alani JSON array veya { testCases: [] } olmali.");
+        }
+        return testCases.map((testCase) => ({
+            input: String(testCase?.input ?? ""),
+            expectedOutput: String(testCase?.expectedOutput ?? ""),
+            hidden: Boolean(testCase?.hidden)
+        }));
+    } catch (error) {
+        throw new Error(error.message || "Bulk testcase JSON parse edilemedi.");
+    }
+}
+
+function buildPublicSampleScaffold() {
+    return [{
+        input: "REPLACE_WITH_SAMPLE_INPUT",
+        expectedOutput: "REPLACE_WITH_SAMPLE_OUTPUT",
+        hidden: false
+    }];
+}
+
+function buildHiddenDepthScaffold() {
+    return [
+        {
+            input: "REPLACE_WITH_BOUNDARY_INPUT",
+            expectedOutput: "REPLACE_WITH_BOUNDARY_OUTPUT",
+            hidden: true
+        },
+        {
+            input: "REPLACE_WITH_TRICKY_INPUT",
+            expectedOutput: "REPLACE_WITH_TRICKY_OUTPUT",
+            hidden: true
+        }
+    ];
+}
+
+function buildCoverageScaffold() {
+    const publicCount = state.adminTestCases.filter((testCase) => !testCase.hidden).length;
+    const base = publicCount === 0 ? buildPublicSampleScaffold() : [];
+    return [
+        ...base,
+        {
+            input: "REPLACE_WITH_EDGE_INPUT",
+            expectedOutput: "REPLACE_WITH_EDGE_OUTPUT",
+            hidden: true
+        },
+        {
+            input: "REPLACE_WITH_STRESS_INPUT",
+            expectedOutput: "REPLACE_WITH_STRESS_OUTPUT",
+            hidden: true
+        }
+    ];
+}
+
+function formatAuthoringScaffoldLabel(flag) {
+    switch (flag) {
+        case "LOW_EXAMPLE_DEPTH":
+            return "Add example scaffold";
+        case "MISSING_HINT":
+            return "Seed hint scaffold";
+        case "MISSING_EDITORIAL":
+            return "Seed editorial scaffold";
+        case "NEEDS_PUBLIC_SAMPLE":
+            return "Seed public depth";
+        case "NEEDS_HIDDEN_DEPTH":
+            return "Seed hidden batch";
+        case "LOW_TOTAL_CASE_COVERAGE":
+            return "Seed coverage batch";
+        default:
+            return `Scaffold: ${formatCatalogAttentionFlag(flag)}`;
+    }
+}
+
+function buildCatalogAttentionBreakdown() {
+    const counts = new Map();
+
+    (state.catalogHealth?.attentionProblems || []).forEach((problem) => {
+        (problem.attentionFlags || []).forEach((flag) => {
+            counts.set(flag, (counts.get(flag) || 0) + 1);
+        });
+    });
+
+    return CATALOG_ATTENTION_ORDER
+        .filter((flag) => counts.has(flag))
+        .map((flag) => [flag, counts.get(flag)]);
+}
+
+function findCatalogAttentionProblem(problemId) {
+    return (state.catalogHealth?.attentionProblems || []).find((problem) => problem.problemId === problemId) || null;
+}
+
+function problemAttentionFlags(problemId) {
+    return findCatalogAttentionProblem(problemId)?.attentionFlags || [];
+}
+
+function matchesCatalogAttentionProblem(problem) {
+    if (state.adminAttentionFilter === "ALL") {
+        return true;
+    }
+
+    if (state.adminAttentionFilter === "ATTENTION") {
+        return (problem.attentionFlags || []).length > 0;
+    }
+
+    return (problem.attentionFlags || []).includes(state.adminAttentionFilter);
+}
+
+function normalizeAdminAttentionFilter() {
+    if (!isAdmin() || state.adminAttentionFilter === "ALL") {
+        return;
+    }
+
+    if (state.adminAttentionFilter === "ATTENTION") {
+        if ((state.catalogHealth?.attentionProblems || []).length === 0) {
+            state.adminAttentionFilter = "ALL";
+        }
+        return;
+    }
+
+    const availableFlags = new Set(buildCatalogAttentionBreakdown().map(([flag]) => flag));
+    if (!availableFlags.has(state.adminAttentionFilter)) {
+        state.adminAttentionFilter = "ALL";
+    }
+}
+
+function renderProblemAttentionBadges(problem) {
+    if (!isAdmin()) {
+        return "";
+    }
+
+    const attentionFlags = problemAttentionFlags(problem.id);
+    if (attentionFlags.length === 0) {
+        return "";
+    }
+
+    const visibleFlags = attentionFlags.slice(0, 2);
+    const overflow = attentionFlags.length - visibleFlags.length;
+    return `
+        ${visibleFlags.map((flag) => `<span class="badge badge--attention">${escapeHtml(formatCatalogAttentionFlag(flag))}</span>`).join("")}
+        ${overflow > 0 ? `<span class="badge badge--attention">+${overflow}</span>` : ""}
     `;
 }
 
@@ -2469,7 +4279,64 @@ function formatViewerStatus(status) {
         return "Not started";
     }
 
+    if (status === "BOOKMARKED") {
+        return "Bookmarked";
+    }
+
     return status.replaceAll("_", " ");
+}
+
+function activityCellClass(entry) {
+    const submissions = Number(entry?.submissions ?? 0);
+    const accepted = Number(entry?.accepted ?? 0);
+
+    if (accepted > 0 && submissions >= 3) {
+        return "activity-cell--high";
+    }
+
+    if (accepted > 0 || submissions >= 2) {
+        return "activity-cell--mid";
+    }
+
+    if (submissions >= 1) {
+        return "activity-cell--low";
+    }
+
+    return "activity-cell--idle";
+}
+
+function renderJourneySection(journey, mode) {
+    if (!journey) {
+        return `<p class="workspace-card__lead">Journey bilgisi henuz hazir degil.</p>`;
+    }
+
+    const goalList = journey.nextGoals || [];
+    const progressPercent = Math.max(0, Math.min(100, Number(journey.progressPercent ?? 0)));
+    const nextCopy = journey.maxLevel
+        ? "Maksimum tier acildi."
+        : `Next: Lv.${journey.nextLevel} ${journey.nextTitle || "-"} at ${journey.nextSolvedTarget ?? 0} solved`;
+
+    return `
+        <article class="dashboard-card__spotlight">
+            <strong>Lv.${journey.level ?? 1} ${escapeHtml(journey.title || "Journey")}</strong>
+            <p>${journey.solvedProblems ?? 0} solved | ${escapeHtml(nextCopy)}</p>
+            <div class="journey-meter" aria-hidden="true">
+                <span class="journey-meter__fill" style="width: ${progressPercent}%"></span>
+            </div>
+            <span class="dashboard-card__hint">${progressPercent}% progress</span>
+        </article>
+        ${goalList.length > 0 ? `
+            <div class="dashboard-card__list">
+                ${goalList.map((goal) => `
+                    <article class="dashboard-card__item ${mode === "dashboard" ? "journey-goal" : ""}">
+                        <strong>${escapeHtml(goal.title || "Goal")}</strong>
+                        <p>${escapeHtml(goal.description || "")}</p>
+                        <span class="dashboard-card__hint">${goal.currentValue ?? 0}/${goal.targetValue ?? 0} ${escapeHtml(goal.unit || "")}</span>
+                    </article>
+                `).join("")}
+            </div>
+        ` : `<p class="workspace-card__lead">Su an yakin hedef kalmadi; tum ana milestone'lar tamam.</p>`}
+    `;
 }
 
 function statusPillClass(status) {
@@ -2487,6 +4354,8 @@ function statusPillClass(status) {
             return "status-pill--runtime-error";
         case "NOT_STARTED":
             return "status-pill--not-started";
+        case "BOOKMARKED":
+            return "status-pill--not-started";
         default:
             return "status-pill--login";
     }
@@ -2494,6 +4363,25 @@ function statusPillClass(status) {
 
 function isAdmin() {
     return state.currentUser?.role === "ADMIN";
+}
+
+function formatCatalogAttentionFlag(flag) {
+    switch (flag) {
+        case "NEEDS_PUBLIC_SAMPLE":
+            return "Need public depth";
+        case "NEEDS_HIDDEN_DEPTH":
+            return "Need hidden depth";
+        case "LOW_TOTAL_CASE_COVERAGE":
+            return "Low case coverage";
+        case "LOW_EXAMPLE_DEPTH":
+            return "Low example depth";
+        case "MISSING_HINT":
+            return "Missing hint";
+        case "MISSING_EDITORIAL":
+            return "Missing editorial";
+        default:
+            return flag;
+    }
 }
 
 function starterTemplate(language) {
@@ -2764,6 +4652,24 @@ function formatDate(value) {
     return new Intl.DateTimeFormat("tr-TR", {
         dateStyle: "short",
         timeStyle: "short"
+    }).format(date);
+}
+
+function formatShortDate(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = typeof value === "string"
+        ? new Date(value.length > 10 ? value : `${value}T00:00:00`)
+        : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return new Intl.DateTimeFormat("tr-TR", {
+        day: "2-digit",
+        month: "2-digit"
     }).format(date);
 }
 

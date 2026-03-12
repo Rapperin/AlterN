@@ -27,6 +27,12 @@ public class SubmissionController {
     public SubmissionResponse createSubmission(@Valid @RequestBody SubmissionCreateRequest request) {
         return submissionService.createSubmission(request);
     }
+
+    @PostMapping("/api/submissions/{id}/resubmit")
+    @Operation(summary = "Resubmit an existing submission", description = "Clones an accessible submission and sends it through the judge again")
+    public SubmissionResponse resubmitSubmission(@PathVariable Long id) {
+        return submissionService.resubmitSubmission(id);
+    }
     
     @Operation(summary = "Create a new submission", description = "Creates a submission for a coding problem")
     @GetMapping("/api/submissions")

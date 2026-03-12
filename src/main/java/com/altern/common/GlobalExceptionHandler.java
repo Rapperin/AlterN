@@ -77,5 +77,23 @@ public class GlobalExceptionHandler {
     public ErrorResponse handleWorkspaceComparisonNotAllowed(WorkspaceComparisonNotAllowedException ex) {
         return new ErrorResponse(ex.getMessage());
     }
+
+    @ExceptionHandler(UserProfileNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleUserProfileNotFound(UserProfileNotFoundException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(ExecutionEnvironmentUnavailableException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ErrorResponse handleExecutionEnvironmentUnavailable(ExecutionEnvironmentUnavailableException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(SubmissionRetryNotAllowedException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleSubmissionRetryNotAllowed(SubmissionRetryNotAllowedException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
     
 }

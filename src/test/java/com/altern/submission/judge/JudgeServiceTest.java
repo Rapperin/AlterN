@@ -2,12 +2,14 @@ package com.altern.submission.judge;
 
 import com.altern.submission.entity.SubmissionStatus;
 import com.altern.submission.runner.CodeRunner;
+import com.altern.submission.runner.ExecutionRequest;
 import com.altern.submission.runner.ExecutionResult;
 import com.altern.submission.runner.MockCodeRunner;
 import com.altern.testcase.entity.TestCase;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -101,6 +103,28 @@ class JudgeServiceTest {
         assertEquals("Execution timed out.", result.getVerdictMessage());
         assertEquals(1, result.getFailedTestIndex());
         assertEquals(Boolean.TRUE, result.getFailedVisible());
+    }
+
+    @Test
+    void passesConfiguredExecutionLimitsToCodeRunner() {
+        AtomicReference<ExecutionRequest> capturedRequest = new AtomicReference<>();
+        CodeRunner capturingRunner = request -> {
+            capturedRequest.set(request);
+            return ExecutionResult.success("23", 10, 48, null);
+        };
+        JudgeService judgeService = new JudgeService(capturingRunner);
+
+        JudgeResult result = judgeService.judge(
+                List.of(testCase("10", "23")),
+                null,
+                "public class Solution {}",
+                750,
+                192
+        );
+
+        assertEquals(SubmissionStatus.ACCEPTED, result.getStatus());
+        assertEquals(750, capturedRequest.get().getTimeLimitMs());
+        assertEquals(192, capturedRequest.get().getMemoryLimitMb());
     }
 
     @Test

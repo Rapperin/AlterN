@@ -115,7 +115,8 @@ class TestCaseControllerIntegrationTest {
         mockMvc.perform(get("/api/problems/{id}", problem.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.testCaseCount").value(1))
-                .andExpect(jsonPath("$.timeLimitMs").value(5000));
+                .andExpect(jsonPath("$.timeLimitMs").value(5000))
+                .andExpect(jsonPath("$.memoryLimitMb").value(256));
     }
 
     @Test

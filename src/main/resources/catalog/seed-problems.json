@@ -1,0 +1,1209 @@
+{
+  "problems": [
+    {
+      "title": "Multiples of 3 or 5",
+      "description": "Given a limit n, find the sum of all natural numbers below n that are divisible by 3 or 5.\n\nThis is the classic warmup problem and a good first AlterN challenge.",
+      "difficulty": "EASY",
+      "timeLimitMs": 2000,
+      "constraints": "1 <= n <= 1000000\nUse 64-bit arithmetic for the result.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the sum of all natural numbers below n divisible by 3 or 5.",
+      "hintTitle": "Think in groups",
+      "hintContent": "A direct loop passes, but there is also a pattern: multiples of 3 and 5 form arithmetic progressions.",
+      "editorialTitle": "Use inclusion-exclusion",
+      "editorialContent": "Sum the multiples of 3, sum the multiples of 5, then subtract the multiples of 15. Each partial sum is an arithmetic series.",
+      "tags": ["math", "warmup", "project-euler"],
+      "examples": [
+        {
+          "input": "10",
+          "output": "23",
+          "explanation": "The values are 3, 5, 6 and 9."
+        },
+        {
+          "input": "1000",
+          "output": "233168",
+          "explanation": "This is the classic reference sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "10",
+          "expectedOutput": "23",
+          "hidden": false
+        },
+        {
+          "input": "16",
+          "expectedOutput": "60",
+          "hidden": false
+        },
+        {
+          "input": "3",
+          "expectedOutput": "0",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "0",
+          "hidden": true
+        },
+        {
+          "input": "200",
+          "expectedOutput": "9168",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "2318",
+          "hidden": true
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "233168",
+          "hidden": true
+        },
+        {
+          "input": "1000000",
+          "expectedOutput": "233333166668",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Even Fibonacci Sum",
+      "description": "Sum every even Fibonacci number that is strictly smaller than n.\n\nThe sequence begins with 1, 2, 3, 5, 8 and so on.",
+      "difficulty": "EASY",
+      "timeLimitMs": 2000,
+      "constraints": "3 <= n <= 4000000\nUse 64-bit arithmetic for the result.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the sum of all even Fibonacci terms smaller than n.",
+      "hintTitle": "Parity repeats",
+      "hintContent": "Generate Fibonacci numbers in order and notice that every third term is even.",
+      "editorialTitle": "Walk only the even terms",
+      "editorialContent": "A simple loop over Fibonacci values is enough, but the stronger observation is that the even subsequence can be generated directly.",
+      "tags": ["math", "fibonacci", "project-euler"],
+      "examples": [
+        {
+          "input": "100",
+          "output": "44",
+          "explanation": "The even terms below 100 are 2, 8 and 34."
+        },
+        {
+          "input": "4000000",
+          "output": "4613732",
+          "explanation": "Known reference sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "100",
+          "expectedOutput": "44",
+          "hidden": false
+        },
+        {
+          "input": "34",
+          "expectedOutput": "10",
+          "hidden": false
+        },
+        {
+          "input": "4",
+          "expectedOutput": "2",
+          "hidden": false
+        },
+        {
+          "input": "3",
+          "expectedOutput": "2",
+          "hidden": true
+        },
+        {
+          "input": "10",
+          "expectedOutput": "10",
+          "hidden": true
+        },
+        {
+          "input": "35",
+          "expectedOutput": "44",
+          "hidden": true
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "798",
+          "hidden": true
+        },
+        {
+          "input": "4000000",
+          "expectedOutput": "4613732",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Sum Square Difference",
+      "description": "For the first n natural numbers, compute the square of the sum minus the sum of the squares.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2000,
+      "constraints": "1 <= n <= 100000\nThe answer may exceed 32-bit integer range.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print (1 + ... + n)^2 - (1^2 + ... + n^2).",
+      "hintTitle": "Try a formula",
+      "hintContent": "This problem becomes much cleaner once you write both pieces with closed-form sums.",
+      "editorialTitle": "Two standard identities",
+      "editorialContent": "Use n(n + 1) / 2 for the first sum and n(n + 1)(2n + 1) / 6 for the sum of squares, then subtract.",
+      "tags": ["math", "formula", "project-euler"],
+      "examples": [
+        {
+          "input": "10",
+          "output": "2640",
+          "explanation": "Reference sample."
+        },
+        {
+          "input": "100",
+          "output": "25164150",
+          "explanation": "Known Project Euler value."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "10",
+          "expectedOutput": "2640",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "0",
+          "hidden": false
+        },
+        {
+          "input": "20",
+          "expectedOutput": "41230",
+          "hidden": true
+        },
+        {
+          "input": "50",
+          "expectedOutput": "1582700",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "25164150",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Largest Prime Factor",
+      "description": "Given a positive integer n, find its largest prime factor.\n\nThe key is to shrink n while you search.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "2 <= n <= 600851475143\nUse 64-bit arithmetic.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the largest prime factor of n.",
+      "hintTitle": "Divide while you go",
+      "hintContent": "Whenever you find a factor, divide it out completely before moving on.",
+      "editorialTitle": "Collapse the remaining n",
+      "editorialContent": "Repeatedly divide n by the current factor. Once factor * factor exceeds the remaining n, any leftover value greater than 1 is the answer.",
+      "tags": ["number-theory", "primes", "project-euler"],
+      "examples": [
+        {
+          "input": "13195",
+          "output": "29",
+          "explanation": "The prime factors are 5, 7, 13 and 29."
+        },
+        {
+          "input": "600851475143",
+          "output": "6857",
+          "explanation": "Canonical sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "13195",
+          "expectedOutput": "29",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "expectedOutput": "2",
+          "hidden": false
+        },
+        {
+          "input": "97",
+          "expectedOutput": "97",
+          "hidden": false
+        },
+        {
+          "input": "29",
+          "expectedOutput": "29",
+          "hidden": true
+        },
+        {
+          "input": "13194",
+          "expectedOutput": "733",
+          "hidden": true
+        },
+        {
+          "input": "64",
+          "expectedOutput": "2",
+          "hidden": true
+        },
+        {
+          "input": "99991",
+          "expectedOutput": "99991",
+          "hidden": true
+        },
+        {
+          "input": "600851475143",
+          "expectedOutput": "6857",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Smallest Multiple",
+      "description": "For a given n, find the smallest positive number that is evenly divisible by every integer from 1 to n.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= n <= 20\nThe answer fits in 64-bit signed integer range for this catalog.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the least common multiple of 1, 2, ..., n.",
+      "hintTitle": "It is an LCM problem",
+      "hintContent": "You do not need to test every candidate number. Build the answer from gcd/lcm relationships.",
+      "editorialTitle": "Fold with gcd",
+      "editorialContent": "Start with 1 and iteratively combine the next integer using lcm(a, b) = a / gcd(a, b) * b.",
+      "tags": ["math", "gcd", "number-theory"],
+      "examples": [
+        {
+          "input": "10",
+          "output": "2520",
+          "explanation": "2520 is divisible by every integer from 1 to 10."
+        },
+        {
+          "input": "20",
+          "output": "232792560",
+          "explanation": "Reference value for the full range."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "10",
+          "expectedOutput": "2520",
+          "hidden": false
+        },
+        {
+          "input": "12",
+          "expectedOutput": "27720",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "1",
+          "hidden": true
+        },
+        {
+          "input": "15",
+          "expectedOutput": "360360",
+          "hidden": true
+        },
+        {
+          "input": "20",
+          "expectedOutput": "232792560",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Sum of Primes Below N",
+      "description": "Compute the sum of all prime numbers strictly smaller than n.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 3000,
+      "constraints": "2 <= n <= 2000000\nThe answer fits in 64-bit signed integer range.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the sum of all primes smaller than n.",
+      "hintTitle": "Generating primes matters",
+      "hintContent": "Checking every number with trial division works for small limits, but a sieve scales much better.",
+      "editorialTitle": "Use a sieve",
+      "editorialContent": "Run the Sieve of Eratosthenes up to n - 1, then sum the indices still marked prime.",
+      "tags": ["primes", "sieve", "number-theory"],
+      "examples": [
+        {
+          "input": "20",
+          "output": "77",
+          "explanation": "2 + 3 + 5 + 7 + 11 + 13 + 17 + 19 = 77."
+        },
+        {
+          "input": "100",
+          "output": "1060",
+          "explanation": "Useful medium-sized sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "20",
+          "expectedOutput": "77",
+          "hidden": false
+        },
+        {
+          "input": "10",
+          "expectedOutput": "17",
+          "hidden": false
+        },
+        {
+          "input": "3",
+          "expectedOutput": "2",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "expectedOutput": "0",
+          "hidden": true
+        },
+        {
+          "input": "5",
+          "expectedOutput": "5",
+          "hidden": true
+        },
+        {
+          "input": "2000",
+          "expectedOutput": "277050",
+          "hidden": true
+        },
+        {
+          "input": "10000",
+          "expectedOutput": "5736396",
+          "hidden": true
+        },
+        {
+          "input": "2000000",
+          "expectedOutput": "142913828922",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Largest Palindrome Product",
+      "description": "Given a digit count n, find the largest palindrome made from the product of two n-digit numbers.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= n <= 4\nThe catalog keeps n small enough for straightforward search with pruning.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the largest palindrome that can be written as a product of two n-digit numbers.",
+      "hintTitle": "Search from the top",
+      "hintContent": "If you iterate downward, you can stop inner loops once the product drops below the best result so far.",
+      "editorialTitle": "Brute force with early breaks",
+      "editorialContent": "Enumerate products in descending order and update the best palindrome found. Descending loops make pruning simple.",
+      "tags": ["bruteforce", "palindrome", "search"],
+      "examples": [
+        {
+          "input": "2",
+          "output": "9009",
+          "explanation": "91 x 99 = 9009."
+        },
+        {
+          "input": "3",
+          "output": "906609",
+          "explanation": "Known reference value."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "1",
+          "expectedOutput": "9",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "expectedOutput": "9009",
+          "hidden": false
+        },
+        {
+          "input": "3",
+          "expectedOutput": "906609",
+          "hidden": true
+        },
+        {
+          "input": "4",
+          "expectedOutput": "99000099",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Special Pythagorean Triplet",
+      "description": "Given a target sum n, find the product abc of a Pythagorean triplet a < b < c such that a + b + c = n. If no such triplet exists, return -1.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= n <= 5000\nReturn -1 when no valid triplet exists.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the product abc, or -1 if there is no valid triplet.",
+      "hintTitle": "Use the sum constraint",
+      "hintContent": "Once you choose a and b, c is already fixed by n - a - b.",
+      "editorialTitle": "Reduce one dimension",
+      "editorialContent": "Loop over a and b, derive c from the target sum, then check a^2 + b^2 = c^2.",
+      "tags": ["math", "geometry", "search"],
+      "examples": [
+        {
+          "input": "12",
+          "output": "60",
+          "explanation": "The triplet is 3, 4, 5."
+        },
+        {
+          "input": "1000",
+          "output": "31875000",
+          "explanation": "Classic Project Euler sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "12",
+          "expectedOutput": "60",
+          "hidden": false
+        },
+        {
+          "input": "24",
+          "expectedOutput": "480",
+          "hidden": false
+        },
+        {
+          "input": "30",
+          "expectedOutput": "780",
+          "hidden": false
+        },
+        {
+          "input": "11",
+          "expectedOutput": "-1",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "-1",
+          "hidden": true
+        },
+        {
+          "input": "90",
+          "expectedOutput": "21060",
+          "hidden": true
+        },
+        {
+          "input": "120",
+          "expectedOutput": "60000",
+          "hidden": true
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "31875000",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Spiral Diagonal Sum",
+      "description": "Start with 1 and build an odd-sized square spiral by moving to the right in a clockwise direction. Compute the sum of the numbers on both diagonals.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= n <= 1001\nn is always odd.",
+      "inputFormat": "A single odd integer n, the side length of the spiral.",
+      "outputFormat": "Print the sum of the two diagonals in the n x n spiral.",
+      "hintTitle": "Look at the corners",
+      "hintContent": "Each square layer contributes exactly four new corner values. The step size is constant within that layer.",
+      "editorialTitle": "Add layers",
+      "editorialContent": "Starting from 1, each ring adds four corners separated by the same step. Accumulate those corners layer by layer.",
+      "tags": ["math", "simulation", "pattern"],
+      "examples": [
+        {
+          "input": "5",
+          "output": "101",
+          "explanation": "The 5 x 5 spiral has diagonal sum 101."
+        },
+        {
+          "input": "1001",
+          "output": "669171001",
+          "explanation": "Known Project Euler value."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "1",
+          "expectedOutput": "1",
+          "hidden": false
+        },
+        {
+          "input": "3",
+          "expectedOutput": "25",
+          "hidden": false
+        },
+        {
+          "input": "5",
+          "expectedOutput": "101",
+          "hidden": true
+        },
+        {
+          "input": "7",
+          "expectedOutput": "261",
+          "hidden": true
+        },
+        {
+          "input": "11",
+          "expectedOutput": "961",
+          "hidden": true
+        },
+        {
+          "input": "1001",
+          "expectedOutput": "669171001",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Amicable Numbers Sum",
+      "description": "For a given limit n, compute the sum of all amicable numbers smaller than n.",
+      "difficulty": "HARD",
+      "timeLimitMs": 3000,
+      "constraints": "2 <= n <= 10000\nUse proper divisors when building divisor sums.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the sum of all amicable numbers smaller than n.",
+      "hintTitle": "Precompute divisor sums",
+      "hintContent": "The expensive part is the sum of proper divisors. Build that value for each number first, then check pairs.",
+      "editorialTitle": "Map a to d(a)",
+      "editorialContent": "Compute d(a) for every a below n, then count values where d(a) = b, d(b) = a and a != b.",
+      "tags": ["number-theory", "divisors", "precompute"],
+      "examples": [
+        {
+          "input": "300",
+          "output": "504",
+          "explanation": "The pair 220 and 284 is the first amicable pair."
+        },
+        {
+          "input": "10000",
+          "output": "31626",
+          "explanation": "Reference value."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "300",
+          "expectedOutput": "504",
+          "hidden": false
+        },
+        {
+          "input": "500",
+          "expectedOutput": "504",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "expectedOutput": "0",
+          "hidden": true
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "504",
+          "hidden": true
+        },
+        {
+          "input": "10000",
+          "expectedOutput": "31626",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Highly Divisible Triangle",
+      "description": "Find the first triangle number that has more than n divisors.",
+      "difficulty": "HARD",
+      "timeLimitMs": 3500,
+      "constraints": "1 <= n <= 200\nTriangle numbers are 1, 3, 6, 10, 15, ...",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the first triangle number with strictly more than n divisors.",
+      "hintTitle": "Count divisors from factorization",
+      "hintContent": "You do not need to enumerate every divisor. Prime factorization gives the divisor count much faster.",
+      "editorialTitle": "Grow triangle numbers and factor them",
+      "editorialContent": "Generate triangle numbers incrementally, factor each candidate, and convert the prime exponents into a divisor count.",
+      "tags": ["number-theory", "triangle-numbers", "divisors"],
+      "examples": [
+        {
+          "input": "5",
+          "output": "28",
+          "explanation": "28 has 6 divisors, which is more than 5."
+        },
+        {
+          "input": "100",
+          "output": "73920",
+          "explanation": "Useful higher sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "5",
+          "expectedOutput": "28",
+          "hidden": false
+        },
+        {
+          "input": "10",
+          "expectedOutput": "120",
+          "hidden": false
+        },
+        {
+          "input": "20",
+          "expectedOutput": "630",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "3",
+          "hidden": true
+        },
+        {
+          "input": "50",
+          "expectedOutput": "25200",
+          "hidden": true
+        },
+        {
+          "input": "120",
+          "expectedOutput": "157080",
+          "hidden": true
+        },
+        {
+          "input": "200",
+          "expectedOutput": "2031120",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Lattice Paths",
+      "description": "How many routes are there through an n x n grid if you can move only right or down?\n\nThis is a clean combinatorics problem disguised as path counting.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= n <= 20\nUse 64-bit arithmetic for the answer.",
+      "inputFormat": "A single integer n, the side length of the square grid.",
+      "outputFormat": "Print the number of valid top-left to bottom-right paths.",
+      "hintTitle": "Every path is a sequence of moves",
+      "hintContent": "A valid path contains exactly n right moves and n down moves. Count how many distinct orderings are possible.",
+      "editorialTitle": "Use a binomial coefficient",
+      "editorialContent": "Each route is an arrangement of n right moves among 2n total moves, so the answer is C(2n, n). Compute it carefully to avoid overflow in intermediate steps.",
+      "tags": ["combinatorics", "grid", "project-euler"],
+      "examples": [
+        {
+          "input": "2",
+          "output": "6",
+          "explanation": "There are 6 ways to arrange 2 right and 2 down moves."
+        },
+        {
+          "input": "20",
+          "output": "137846528820",
+          "explanation": "Reference value for the standard 20 x 20 grid."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "2",
+          "expectedOutput": "6",
+          "hidden": false
+        },
+        {
+          "input": "5",
+          "expectedOutput": "252",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "2",
+          "hidden": true
+        },
+        {
+          "input": "10",
+          "expectedOutput": "184756",
+          "hidden": true
+        },
+        {
+          "input": "20",
+          "expectedOutput": "137846528820",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Power Digit Sum",
+      "description": "Given n, compute the sum of the decimal digits of 2^n.\n\nThe arithmetic is simple once you can represent the whole number correctly.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= n <= 1000\nThe full value of 2^n will not fit in standard integer types for larger n.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the sum of the digits of 2 raised to the power n.",
+      "hintTitle": "Big integers or manual digits",
+      "hintContent": "You only need the decimal digits of the power. A language big integer helps, but digit-by-digit multiplication also works.",
+      "editorialTitle": "Build the number, then sum digits",
+      "editorialContent": "Either use a built-in big integer type or store the decimal digits manually while doubling the number n times. Once 2^n is built, sum its digits.",
+      "tags": ["big-integer", "digits", "math"],
+      "examples": [
+        {
+          "input": "15",
+          "output": "26",
+          "explanation": "2^15 = 32768, and 3 + 2 + 7 + 6 + 8 = 26."
+        },
+        {
+          "input": "1000",
+          "output": "1366",
+          "explanation": "Classic Project Euler reference value."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "15",
+          "expectedOutput": "26",
+          "hidden": false
+        },
+        {
+          "input": "20",
+          "expectedOutput": "31",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "2",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "115",
+          "hidden": true
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "1366",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Factorial Digit Sum",
+      "description": "For a given n, compute n! and return the sum of its decimal digits.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= n <= 100\nThe factorial value grows very quickly, so plan for large integers or manual digits.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the sum of the digits of n factorial.",
+      "hintTitle": "The hard part is storing n!",
+      "hintContent": "The answer is easy once the factorial is available. Think about how to represent very large decimal values.",
+      "editorialTitle": "Multiply up, then add digits",
+      "editorialContent": "Accumulate the factorial from 1 to n using a big integer or manual digit array, then sum the digits of the final decimal representation.",
+      "tags": ["big-integer", "factorial", "digits"],
+      "examples": [
+        {
+          "input": "10",
+          "output": "27",
+          "explanation": "10! = 3628800, whose digit sum is 27."
+        },
+        {
+          "input": "100",
+          "output": "648",
+          "explanation": "Known reference sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "3",
+          "expectedOutput": "6",
+          "hidden": false
+        },
+        {
+          "input": "10",
+          "expectedOutput": "27",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "1",
+          "hidden": true
+        },
+        {
+          "input": "20",
+          "expectedOutput": "54",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "648",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Distinct Powers",
+      "description": "For a given n, count how many distinct values appear in the set a^b where 2 <= a <= n and 2 <= b <= n.",
+      "difficulty": "HARD",
+      "timeLimitMs": 3000,
+      "constraints": "2 <= n <= 100\nDifferent base-exponent pairs can still produce the same value.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the number of distinct terms in the set of powers.",
+      "hintTitle": "Duplicates are the real issue",
+      "hintContent": "Generating every value is straightforward for this input range. The main trick is making sure equivalent powers are counted only once.",
+      "editorialTitle": "Use a set of powers",
+      "editorialContent": "Enumerate every pair (a, b), compute a^b, and place the result in a set. The final set size is the answer for this catalog range.",
+      "tags": ["sets", "powers", "project-euler"],
+      "examples": [
+        {
+          "input": "5",
+          "output": "15",
+          "explanation": "The 16 raw terms collapse to 15 distinct values because 4^2 = 2^4."
+        },
+        {
+          "input": "100",
+          "output": "9183",
+          "explanation": "Reference value for the full range."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "3",
+          "expectedOutput": "4",
+          "hidden": false
+        },
+        {
+          "input": "5",
+          "expectedOutput": "15",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "expectedOutput": "1",
+          "hidden": true
+        },
+        {
+          "input": "15",
+          "expectedOutput": "177",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "9183",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Coin Sums",
+      "description": "Using the UK coin set 1, 2, 5, 10, 20, 50, 100 and 200, count how many distinct ways there are to make exactly n pence.",
+      "difficulty": "HARD",
+      "timeLimitMs": 3000,
+      "constraints": "1 <= n <= 200\nOrder does not matter; only the multiset of coins matters.",
+      "inputFormat": "A single integer n, the target amount in pence.",
+      "outputFormat": "Print the number of distinct coin combinations that sum to n.",
+      "hintTitle": "Order should not create duplicates",
+      "hintContent": "If you generate permutations of the same coin set, you will overcount badly. Think in terms of coin types and dynamic programming.",
+      "editorialTitle": "Classic coin-change DP",
+      "editorialContent": "Maintain dp[x] = number of ways to build amount x. For each coin, update dp from left to right so every combination is counted once.",
+      "tags": ["dp", "combinatorics", "coin-change"],
+      "examples": [
+        {
+          "input": "5",
+          "output": "4",
+          "explanation": "The combinations are 5, 2+2+1, 2+1+1+1, and 1+1+1+1+1."
+        },
+        {
+          "input": "200",
+          "output": "73682",
+          "explanation": "Reference value for two pounds."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "5",
+          "expectedOutput": "4",
+          "hidden": false
+        },
+        {
+          "input": "10",
+          "expectedOutput": "11",
+          "hidden": false
+        },
+        {
+          "input": "20",
+          "expectedOutput": "41",
+          "hidden": false
+        },
+        {
+          "input": "2",
+          "expectedOutput": "2",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "1",
+          "hidden": true
+        },
+        {
+          "input": "50",
+          "expectedOutput": "451",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "4563",
+          "hidden": true
+        },
+        {
+          "input": "150",
+          "expectedOutput": "21873",
+          "hidden": true
+        },
+        {
+          "input": "200",
+          "expectedOutput": "73682",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Self Powers Tail",
+      "description": "Compute the sum 1^1 + 2^2 + ... + n^n and print its last 10 digits.\n\nWhen the result has fewer than 10 digits, print it normally without left-padding zeros.",
+      "difficulty": "HARD",
+      "timeLimitMs": 3000,
+      "constraints": "1 <= n <= 1000\nUse modular arithmetic to avoid constructing huge values unnecessarily.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the last 10 digits of the self-power sum as a normal integer.",
+      "hintTitle": "You only need the tail",
+      "hintContent": "If the problem asks only for the last 10 digits, keep every intermediate computation modulo 10^10.",
+      "editorialTitle": "Accumulate powers modulo 10^10",
+      "editorialContent": "For each i from 1 to n, compute i^i modulo 10^10, add it to the running sum, and reduce modulo 10^10 again.",
+      "tags": ["modular-arithmetic", "powers", "big-integer"],
+      "examples": [
+        {
+          "input": "10",
+          "output": "405071317",
+          "explanation": "The sum of self powers up to 10 ends with 405071317."
+        },
+        {
+          "input": "1000",
+          "output": "9110846700",
+          "explanation": "Reference Project Euler tail."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "3",
+          "expectedOutput": "32",
+          "hidden": false
+        },
+        {
+          "input": "10",
+          "expectedOutput": "405071317",
+          "hidden": false
+        },
+        {
+          "input": "1",
+          "expectedOutput": "1",
+          "hidden": true
+        },
+        {
+          "input": "100",
+          "expectedOutput": "9027641920",
+          "hidden": true
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "9110846700",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Longest Collatz Start",
+      "description": "For a given limit n, find the starting number smaller than n that produces the longest Collatz sequence.\n\nIf multiple starting values have the same maximum length, return the smallest one.",
+      "difficulty": "HARD",
+      "timeLimitMs": 3000,
+      "constraints": "2 <= n <= 100000\nThe Collatz rules are: n -> n / 2 when n is even, otherwise n -> 3n + 1.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the starting number smaller than n with the longest Collatz chain.",
+      "hintTitle": "Many chains overlap",
+      "hintContent": "Recomputing every chain from scratch wastes work. Store lengths you have already solved and reuse them.",
+      "editorialTitle": "Memoize chain lengths",
+      "editorialContent": "Evaluate Collatz lengths with caching. Then sweep all starting numbers below n and keep the best chain length, breaking ties toward the smaller starting value.",
+      "tags": ["memoization", "simulation", "number-theory"],
+      "examples": [
+        {
+          "input": "10",
+          "output": "9",
+          "explanation": "9 produces the longest chain among starting values below 10."
+        },
+        {
+          "input": "1000",
+          "output": "871",
+          "explanation": "Useful larger sample."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "10",
+          "expectedOutput": "9",
+          "hidden": false
+        },
+        {
+          "input": "100",
+          "expectedOutput": "97",
+          "hidden": false
+        },
+        {
+          "input": "20",
+          "expectedOutput": "18",
+          "hidden": false
+        },
+        {
+          "input": "500",
+          "expectedOutput": "327",
+          "hidden": true
+        },
+        {
+          "input": "2",
+          "expectedOutput": "1",
+          "hidden": true
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "871",
+          "hidden": true
+        },
+        {
+          "input": "10000",
+          "expectedOutput": "6171",
+          "hidden": true
+        },
+        {
+          "input": "100000",
+          "expectedOutput": "77031",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Maximum Path Sum I",
+      "description": "Given a triangle of integers, find the maximum total from top to bottom by moving to adjacent numbers on the next row.",
+      "difficulty": "MEDIUM",
+      "timeLimitMs": 2500,
+      "constraints": "1 <= rows <= 15\nThe first input line gives the number of rows, and row i contains exactly i integers.",
+      "inputFormat": "The first line contains r. The next r lines contain the triangle rows, with row i holding i space-separated integers.",
+      "outputFormat": "Print the largest achievable path sum from the top row to the bottom row.",
+      "hintTitle": "The best choice depends on the future",
+      "hintContent": "A greedy step is not enough. Work from the bottom of the triangle upward so each parent sees the best continuation below it.",
+      "editorialTitle": "Bottom-up dynamic programming",
+      "editorialContent": "Start from the last row and fold upward: each cell becomes its value plus the larger of its two children. The top cell becomes the answer.",
+      "tags": ["dp", "triangle", "multiline-input"],
+      "examples": [
+        {
+          "input": "4\n3\n7 4\n2 4 6\n8 5 9 3",
+          "output": "23",
+          "explanation": "The best route is 3 -> 7 -> 4 -> 9."
+        },
+        {
+          "input": "15\n75\n95 64\n17 47 82\n18 35 87 10\n20 4 82 47 65\n19 1 23 75 3 34\n88 2 77 73 7 63 67\n99 65 4 28 6 16 70 92\n41 41 26 56 83 40 80 70 33\n41 48 72 33 47 32 37 16 94 29\n53 71 44 65 25 43 91 52 97 51 14\n70 11 33 28 77 73 17 78 39 68 17 57\n91 71 52 38 17 14 91 43 58 50 27 29 48\n63 66 4 68 89 53 67 30 73 16 69 87 40 31\n4 62 98 27 23 9 70 98 73 93 38 53 60 4 23",
+          "output": "1074",
+          "explanation": "Classic Project Euler triangle."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "4\n3\n7 4\n2 4 6\n8 5 9 3",
+          "expectedOutput": "23",
+          "hidden": false
+        },
+        {
+          "input": "4\n5\n9 6\n4 6 8\n0 7 1 5",
+          "expectedOutput": "27",
+          "hidden": false
+        },
+        {
+          "input": "4\n1\n2 1\n1 20 1\n1 1 1 50",
+          "expectedOutput": "53",
+          "hidden": false
+        },
+        {
+          "input": "1\n5",
+          "expectedOutput": "5",
+          "hidden": true
+        },
+        {
+          "input": "2\n1\n2 3",
+          "expectedOutput": "4",
+          "hidden": true
+        },
+        {
+          "input": "5\n1\n2 3\n4 5 6\n7 8 9 10\n11 12 13 14 15",
+          "expectedOutput": "35",
+          "hidden": true
+        },
+        {
+          "input": "5\n9\n1 2\n3 1 5\n9 9 1 1\n1 1 50 1 1",
+          "expectedOutput": "72",
+          "hidden": true
+        },
+        {
+          "input": "15\n75\n95 64\n17 47 82\n18 35 87 10\n20 4 82 47 65\n19 1 23 75 3 34\n88 2 77 73 7 63 67\n99 65 4 28 6 16 70 92\n41 41 26 56 83 40 80 70 33\n41 48 72 33 47 32 37 16 94 29\n53 71 44 65 25 43 91 52 97 51 14\n70 11 33 28 77 73 17 78 39 68 17 57\n91 71 52 38 17 14 91 43 58 50 27 29 48\n63 66 4 68 89 53 67 30 73 16 69 87 40 31\n4 62 98 27 23 9 70 98 73 93 38 53 60 4 23",
+          "expectedOutput": "1074",
+          "hidden": true
+        }
+      ]
+    },
+    {
+      "title": "Double-Base Palindrome Sum",
+      "description": "Find the sum of all positive integers smaller than n that are palindromic in both base 10 and base 2.",
+      "difficulty": "HARD",
+      "timeLimitMs": 3000,
+      "constraints": "10 <= n <= 1000000\nDo not allow leading zeros in either representation.",
+      "inputFormat": "A single integer n.",
+      "outputFormat": "Print the sum of all numbers below n that are palindromic in base 10 and base 2.",
+      "hintTitle": "Check both views",
+      "hintContent": "A decimal palindrome is not automatically a binary palindrome. Test both string representations.",
+      "editorialTitle": "Scan and validate",
+      "editorialContent": "Loop through the positive integers below n, test whether the decimal and binary representations are both palindromes, and sum the matches.",
+      "tags": ["palindrome", "base-conversion", "search"],
+      "examples": [
+        {
+          "input": "100",
+          "output": "157",
+          "explanation": "The qualifying numbers below 100 are 1, 3, 5, 7, 9, 33 and 99."
+        },
+        {
+          "input": "1000000",
+          "output": "872187",
+          "explanation": "Reference value for the full range."
+        }
+      ],
+      "testCases": [
+        {
+          "input": "10",
+          "expectedOutput": "25",
+          "hidden": false
+        },
+        {
+          "input": "100",
+          "expectedOutput": "157",
+          "hidden": false
+        },
+        {
+          "input": "11",
+          "expectedOutput": "25",
+          "hidden": false
+        },
+        {
+          "input": "1000",
+          "expectedOutput": "1772",
+          "hidden": true
+        },
+        {
+          "input": "10000",
+          "expectedOutput": "18228",
+          "hidden": true
+        },
+        {
+          "input": "100000",
+          "expectedOutput": "286602",
+          "hidden": true
+        },
+        {
+          "input": "1000000",
+          "expectedOutput": "872187",
+          "hidden": true
+        }
+      ]
+    }
+  ]
+}

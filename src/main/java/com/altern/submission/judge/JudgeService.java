@@ -21,10 +21,20 @@ public class JudgeService {
     private final CodeRunner codeRunner;
 
     public JudgeResult judge(List<TestCase> testCases, ProgrammingLanguage language, String sourceCode) {
-        return judge(testCases, language, sourceCode, null);
+        return judge(testCases, language, sourceCode, null, null);
     }
 
     public JudgeResult judge(List<TestCase> testCases, ProgrammingLanguage language, String sourceCode, Integer timeLimitMs) {
+        return judge(testCases, language, sourceCode, timeLimitMs, null);
+    }
+
+    public JudgeResult judge(
+            List<TestCase> testCases,
+            ProgrammingLanguage language,
+            String sourceCode,
+            Integer timeLimitMs,
+            Integer memoryLimitMb
+    ) {
         if (!hasTestCases(testCases)) {
             return baseResult(SubmissionStatus.WRONG_ANSWER, 0, 0)
                     .executionTime(0)
@@ -49,7 +59,7 @@ public class JudgeService {
         for (int index = 0; index < testCases.size(); index++) {
             TestCase testCase = testCases.get(index);
             ExecutionResult executionResult = codeRunner.run(
-                    new ExecutionRequest(language, sourceCode, testCase.getInput(), timeLimitMs)
+                    new ExecutionRequest(language, sourceCode, testCase.getInput(), timeLimitMs, memoryLimitMb)
             );
 
             if (executionResult.getStatus() == ExecutionStatus.COMPILATION_ERROR) {

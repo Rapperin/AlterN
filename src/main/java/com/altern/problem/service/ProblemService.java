@@ -1,6 +1,9 @@
 package com.altern.problem.service;
 
+import com.altern.auth.entity.UserRole;
 import com.altern.auth.security.CurrentUserService;
+import com.altern.bookmark.entity.ProblemBookmark;
+import com.altern.bookmark.repository.ProblemBookmarkRepository;
 import com.altern.common.InvalidDifficultyException;
 import com.altern.common.PageResponse;
 import com.altern.common.ProblemDeletionNotAllowedException;
@@ -10,6 +13,7 @@ import com.altern.problem.dto.BulkProblemCreateRequest;
 import com.altern.problem.dto.ProblemCreateRequest;
 import com.altern.problem.dto.ProblemExamplePayload;
 import com.altern.problem.dto.ProblemResponse;
+import com.altern.problem.dto.ProblemStatsResponse;
 import com.altern.problem.entity.Difficulty;
 import com.altern.problem.entity.Problem;
 import com.altern.problem.entity.ProblemExampleValue;
@@ -26,10 +30,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +47,7 @@ public class ProblemService {
     private final ProblemMapper problemMapper;
     private final SubmissionRepository submissionRepository;
     private final TestCaseRepository testCaseRepository;
+    private final ProblemBookmarkRepository problemBookmarkRepository;
     private final CurrentUserService currentUserService;
     
     public List<ProblemResponse> getProblems() {
@@ -54,6 +63,79 @@ public class ProblemService {
                 .orElseThrow(() -> new ProblemNotFoundException(id));
         
         return toProblemResponse(problem, true);
+    }
+
+    public ProblemStatsResponse getProblemStats(Long id) {
+        Problem problem = problemRepository.findById(id)
+                .orElseThrow(() -> new ProblemNotFoundException(id));
+        List<Submission> submissions = submissionRepository.findByProblem_Id(id).stream()
+                .filter(this::isPublicCommunitySubmission)
+                .toList();
+
+        ProblemStatsResponse response = new ProblemStatsResponse();
+        response.setProblemId(problem.getId());
+        response.setProblemTitle(problem.getTitle());
+        response.setTotalSubmissions(submissions.size());
+
+        int acceptedSubmissions = (int) submissions.stream()
+                .filter(submission -> submission.getStatus() == SubmissionStatus.ACCEPTED)
+                .count();
+        response.setAcceptedSubmissions(acceptedSubmissions);
+        response.setAcceptedUsers((int) submissions.stream()
+                .filter(submission -> submission.getStatus() == SubmissionStatus.ACCEPTED)
+                .map(Submission::getUser)
+                .filter(user -> user != null && user.getId() != null)
+                .map(user -> user.getId())
+                .distinct()
+                .count());
+        response.setAcceptanceRate(submissions.isEmpty()
+                ? 0
+                : (int) Math.round((acceptedSubmissions * 100.0) / submissions.size()));
+
+        Map<ProgrammingLanguage, Integer> languageBreakdown = new EnumMap<>(ProgrammingLanguage.class);
+        for (ProgrammingLanguage language : ProgrammingLanguage.values()) {
+            languageBreakdown.put(language, 0);
+        }
+
+        for (Submission submission : submissions) {
+            if (submission.getLanguage() == null) {
+                continue;
+            }
+            languageBreakdown.merge(submission.getLanguage(), 1, Integer::sum);
+        }
+
+        response.setMostUsedLanguage(languageBreakdown.entrySet().stream()
+                .max(Comparator.<Map.Entry<ProgrammingLanguage, Integer>>comparingInt(Map.Entry::getValue)
+                        .thenComparing(entry -> entry.getKey().name()))
+                .filter(entry -> entry.getValue() > 0)
+                .map(entry -> entry.getKey().name())
+                .orElse(null));
+
+        Map<String, Integer> serializedBreakdown = new LinkedHashMap<>();
+        for (ProgrammingLanguage language : ProgrammingLanguage.values()) {
+            serializedBreakdown.put(language.name(), languageBreakdown.getOrDefault(language, 0));
+        }
+        response.setLanguageBreakdown(serializedBreakdown);
+
+        response.setFastestExecutionTime(submissions.stream()
+                .filter(submission -> submission.getStatus() == SubmissionStatus.ACCEPTED)
+                .map(Submission::getExecutionTime)
+                .filter(Objects::nonNull)
+                .min(Integer::compareTo)
+                .orElse(null));
+        response.setLowestMemoryUsage(submissions.stream()
+                .filter(submission -> submission.getStatus() == SubmissionStatus.ACCEPTED)
+                .map(Submission::getMemoryUsage)
+                .filter(Objects::nonNull)
+                .min(Integer::compareTo)
+                .orElse(null));
+        response.setLatestAcceptedAt(submissions.stream()
+                .filter(submission -> submission.getStatus() == SubmissionStatus.ACCEPTED)
+                .map(this::activityTime)
+                .filter(Objects::nonNull)
+                .max(LocalDateTime::compareTo)
+                .orElse(null));
+        return response;
     }
     
     public ProblemResponse createProblem(ProblemCreateRequest request) {
@@ -91,7 +173,33 @@ public class ProblemService {
             throw new ProblemDeletionNotAllowedException(id);
         }
 
+        problemBookmarkRepository.deleteByProblem_Id(id);
         problemRepository.delete(problem);
+    }
+
+    public void bookmarkProblem(Long id) {
+        Problem problem = problemRepository.findById(id)
+                .orElseThrow(() -> new ProblemNotFoundException(id));
+        var user = currentUserService.requireCurrentUser();
+
+        if (problemBookmarkRepository.existsByUser_IdAndProblem_Id(user.getId(), problem.getId())) {
+            return;
+        }
+
+        ProblemBookmark bookmark = new ProblemBookmark();
+        bookmark.setProblem(problem);
+        bookmark.setUser(user);
+        bookmark.setCreatedAt(LocalDateTime.now());
+        problemBookmarkRepository.save(bookmark);
+    }
+
+    public void removeProblemBookmark(Long id) {
+        problemRepository.findById(id)
+                .orElseThrow(() -> new ProblemNotFoundException(id));
+        var user = currentUserService.requireCurrentUser();
+
+        problemBookmarkRepository.findByUser_IdAndProblem_Id(user.getId(), id)
+                .ifPresent(problemBookmarkRepository::delete);
     }
     public PageResponse<ProblemResponse> getProblems(int page, int size) {
         
@@ -208,6 +316,7 @@ public class ProblemService {
 
     private void applyViewerProgress(Problem problem, ProblemResponse response) {
         response.setViewerSolved(false);
+        response.setViewerBookmarked(false);
         response.setViewerStatus(null);
 
         if (problem == null || problem.getId() == null) {
@@ -215,6 +324,7 @@ public class ProblemService {
         }
 
         currentUserService.findCurrentUser().ifPresent(user -> {
+            response.setViewerBookmarked(problemBookmarkRepository.existsByUser_IdAndProblem_Id(user.getId(), problem.getId()));
             boolean solved = submissionRepository.existsByProblem_IdAndUser_IdAndStatus(
                     problem.getId(),
                     user.getId(),
@@ -317,6 +427,14 @@ public class ProblemService {
         return requestedTimeLimitMs;
     }
 
+    private int resolveMemoryLimitMb(Integer requestedMemoryLimitMb) {
+        if (requestedMemoryLimitMb == null || requestedMemoryLimitMb < 1) {
+            return Problem.DEFAULT_MEMORY_LIMIT_MB;
+        }
+
+        return requestedMemoryLimitMb;
+    }
+
     private void applyProblemValues(Problem problem, ProblemCreateRequest request) {
         problem.setTitle(request.getTitle().trim());
         problem.setDescription(request.getDescription().trim());
@@ -328,6 +446,7 @@ public class ProblemService {
         problem.setEditorialTitle(normalizeOptionalText(request.getEditorialTitle()));
         problem.setEditorialContent(normalizeOptionalText(request.getEditorialContent()));
         problem.setTimeLimitMs(resolveTimeLimitMs(request.getTimeLimitMs()));
+        problem.setMemoryLimitMb(resolveMemoryLimitMb(request.getMemoryLimitMb()));
         problem.setTags(normalizeTags(request.getTags()));
         problem.setExamples(normalizeExamples(request.getExamples()));
         applyStarterCodes(problem, request.getStarterCodes());
@@ -430,6 +549,16 @@ public class ProblemService {
         testCase.setExpectedOutput(request.getExpectedOutput().trim());
         testCase.setHidden(Boolean.TRUE.equals(request.getHidden()));
         return testCase;
+    }
+
+    private boolean isPublicCommunitySubmission(Submission submission) {
+        return submission != null
+                && submission.getUser() != null
+                && submission.getUser().getRole() == UserRole.USER;
+    }
+
+    private LocalDateTime activityTime(Submission submission) {
+        return submission.getJudgedAt() != null ? submission.getJudgedAt() : submission.getCreatedAt();
     }
     
 }

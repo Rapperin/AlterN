@@ -3,6 +3,7 @@ import com.altern.common.PageResponse;
 import com.altern.problem.dto.BulkProblemCreateRequest;
 import com.altern.problem.dto.ProblemCreateRequest;
 import com.altern.problem.dto.ProblemResponse;
+import com.altern.problem.dto.ProblemStatsResponse;
 import com.altern.problem.service.ProblemService;
 import com.altern.submission.dto.SubmissionResponse;
 import com.altern.submission.service.SubmissionService;
@@ -81,6 +82,27 @@ public class ProblemController {
     public ProblemResponse getProblemById(@PathVariable Long id) {
         return problemService.getProblemById(id);
     }
+
+    @Operation(summary = "Get problem community stats", description = "Returns public community stats for the given problem id")
+    @GetMapping("/api/problems/{id}/stats")
+    public ProblemStatsResponse getProblemStats(@PathVariable Long id) {
+        return problemService.getProblemStats(id);
+    }
+
+    @Operation(summary = "Bookmark a problem", description = "Adds the given problem to the current user's saved queue")
+    @PostMapping("/api/problems/{id}/bookmark")
+    public ResponseEntity<Void> bookmarkProblem(@PathVariable Long id) {
+        problemService.bookmarkProblem(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Remove a problem bookmark", description = "Removes the given problem from the current user's saved queue")
+    @DeleteMapping("/api/problems/{id}/bookmark")
+    public ResponseEntity<Void> removeProblemBookmark(@PathVariable Long id) {
+        problemService.removeProblemBookmark(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "Create a new problem", description = "Creates a new coding problem")
     @PostMapping("/api/problems")
     public ResponseEntity<ProblemResponse> createProblem(@Valid @RequestBody ProblemCreateRequest request) {

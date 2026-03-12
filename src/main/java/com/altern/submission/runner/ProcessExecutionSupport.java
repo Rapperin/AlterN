@@ -18,9 +18,22 @@ final class ProcessExecutionSupport {
 
     static ProcessOutcome execute(Path workingDirectory, Duration timeout, String stdin, String... command)
             throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command)
-                .directory(workingDirectory.toFile())
-                .start();
+        return executeInternal(workingDirectory, timeout, stdin, command);
+    }
+
+    static ProcessOutcome execute(Duration timeout, String stdin, String... command)
+            throws IOException, InterruptedException {
+        return executeInternal(null, timeout, stdin, command);
+    }
+
+    private static ProcessOutcome executeInternal(Path workingDirectory, Duration timeout, String stdin, String... command)
+            throws IOException, InterruptedException {
+        ProcessBuilder builder = new ProcessBuilder(command);
+        if (workingDirectory != null) {
+            builder.directory(workingDirectory.toFile());
+        }
+
+        Process process = builder.start();
 
         CompletableFuture<String> stdout = readAsync(process.getInputStream());
         CompletableFuture<String> stderr = readAsync(process.getErrorStream());

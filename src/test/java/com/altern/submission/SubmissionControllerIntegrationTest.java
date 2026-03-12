@@ -1,8 +1,12 @@
 package com.altern.submission;
 
+import com.altern.auth.repository.UserAccountRepository;
 import com.altern.problem.entity.Difficulty;
 import com.altern.problem.entity.Problem;
 import com.altern.problem.repository.ProblemRepository;
+import com.altern.submission.entity.ProgrammingLanguage;
+import com.altern.submission.entity.Submission;
+import com.altern.submission.entity.SubmissionStatus;
 import com.altern.submission.repository.SubmissionRepository;
 import com.altern.testcase.entity.TestCase;
 import com.altern.testcase.repository.TestCaseRepository;
@@ -17,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -43,6 +49,9 @@ class SubmissionControllerIntegrationTest {
 
     @Autowired
     private SubmissionRepository submissionRepository;
+
+    @Autowired
+    private UserAccountRepository userAccountRepository;
 
     @Test
     void submissionJudgeUsesHiddenTestCasesAndReturnsRichSubmissionDetails() throws Exception {
@@ -369,6 +378,88 @@ class SubmissionControllerIntegrationTest {
         long submissionId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
 
         mockMvc.perform(get("/api/submissions/{id}", submissionId)
+                        .header("Authorization", "Bearer " + aliceToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void resubmitEndpointCreatesNewSubmissionFromAccessibleSource() throws Exception {
+        String userToken = login("demo", "demo123");
+        Problem problem = problemRepository.save(problem("Resubmit Flow"));
+        testCaseRepository.save(testCase(problem, "10", "23", false));
+
+        MvcResult originalResult = mockMvc.perform(post("/api/submissions")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "problemId": %d,
+                                  "language": "JAVA",
+                                  "sourceCode": "public class Solution { public static int solve(int n) { return 0; } }"
+                                }
+                                """.formatted(problem.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("WRONG_ANSWER"))
+                .andReturn();
+
+        long originalSubmissionId = objectMapper.readTree(originalResult.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(post("/api/submissions/{id}/resubmit", originalSubmissionId)
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.id").value(Matchers.not(originalSubmissionId)))
+                .andExpect(jsonPath("$.problemId").value(problem.getId()))
+                .andExpect(jsonPath("$.language").value("JAVA"))
+                .andExpect(jsonPath("$.status").value("WRONG_ANSWER"));
+
+        assertEquals(2, submissionRepository.count());
+    }
+
+    @Test
+    void resubmitEndpointRejectsPendingSubmission() throws Exception {
+        Problem problem = problemRepository.save(problem("Pending Retry"));
+        String token = login("demo", "demo123");
+
+        Submission pendingSubmission = new Submission();
+        pendingSubmission.setProblem(problem);
+        pendingSubmission.setUser(userAccountRepository.findByUsername("demo").orElseThrow());
+        pendingSubmission.setLanguage(ProgrammingLanguage.JAVA);
+        pendingSubmission.setSourceCode("public class Solution {}");
+        pendingSubmission.setStatus(SubmissionStatus.PENDING);
+        pendingSubmission.setCreatedAt(LocalDateTime.now());
+        pendingSubmission = submissionRepository.save(pendingSubmission);
+
+        mockMvc.perform(post("/api/submissions/{id}/resubmit", pendingSubmission.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Pending submissions cannot be retried yet."));
+    }
+
+    @Test
+    void resubmitEndpointDoesNotAllowAnotherUsersSubmission() throws Exception {
+        Problem problem = problemRepository.save(problem("Retry Ownership"));
+        testCaseRepository.save(testCase(problem, "10", "23", false));
+
+        String demoToken = login("demo", "demo123");
+        String aliceToken = registerAndGetToken("alice-retry" + System.nanoTime(), "secret123");
+
+        MvcResult result = mockMvc.perform(post("/api/submissions")
+                        .header("Authorization", "Bearer " + demoToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "problemId": %d,
+                                  "language": "JAVA",
+                                  "sourceCode": "public class Solution { public static int solve(int n) { return 23; } }"
+                                }
+                                """.formatted(problem.getId())))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        long submissionId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(post("/api/submissions/{id}/resubmit", submissionId)
                         .header("Authorization", "Bearer " + aliceToken))
                 .andExpect(status().isNotFound());
     }

@@ -22,6 +22,7 @@ public class ProblemResponse {
     private String editorialContent;
     private String difficulty;
     private Integer timeLimitMs;
+    private Integer memoryLimitMb;
     private List<String> tags;
     private List<ProblemExamplePayload> examples;
     private Map<String, String> starterCodes;
@@ -30,6 +31,7 @@ public class ProblemResponse {
     private boolean editorialAvailable;
     private boolean editorialUnlocked;
     private boolean viewerSolved;
+    private boolean viewerBookmarked;
     private String viewerStatus;
     private int submissionCount;
     private int testCaseCount;

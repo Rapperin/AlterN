@@ -8,17 +8,23 @@ import org.springframework.stereotype.Component;
 @Primary
 public class RoutingCodeRunner implements CodeRunner {
 
+    private final RunnerHealthService runnerHealthService;
+    private final DockerSandboxCodeRunner dockerSandboxCodeRunner;
     private final JavaProcessCodeRunner javaProcessCodeRunner;
     private final PythonProcessCodeRunner pythonProcessCodeRunner;
     private final CppProcessCodeRunner cppProcessCodeRunner;
     private final MockCodeRunner mockCodeRunner;
 
     public RoutingCodeRunner(
+            RunnerHealthService runnerHealthService,
+            DockerSandboxCodeRunner dockerSandboxCodeRunner,
             JavaProcessCodeRunner javaProcessCodeRunner,
             PythonProcessCodeRunner pythonProcessCodeRunner,
             CppProcessCodeRunner cppProcessCodeRunner,
             MockCodeRunner mockCodeRunner
     ) {
+        this.runnerHealthService = runnerHealthService;
+        this.dockerSandboxCodeRunner = dockerSandboxCodeRunner;
         this.javaProcessCodeRunner = javaProcessCodeRunner;
         this.pythonProcessCodeRunner = pythonProcessCodeRunner;
         this.cppProcessCodeRunner = cppProcessCodeRunner;
@@ -27,6 +33,9 @@ public class RoutingCodeRunner implements CodeRunner {
 
     @Override
     public ExecutionResult run(ExecutionRequest request) {
+        if (runnerHealthService.shouldUseDockerSandbox() && supportsDockerSandbox(request.getLanguage())) {
+            return dockerSandboxCodeRunner.run(request);
+        }
         if (request.getLanguage() == ProgrammingLanguage.JAVA) {
             return javaProcessCodeRunner.run(request);
         }
@@ -43,7 +52,14 @@ public class RoutingCodeRunner implements CodeRunner {
                 mockResult.getOutput(),
                 mockResult.getExecutionTime(),
                 mockResult.getMemoryUsage(),
-                "Real execution currently supports JAVA only. Mock runner used for " + request.getLanguage() + "."
+                "Real execution currently supports JAVA, PYTHON, and CPP. Mock runner used for "
+                        + request.getLanguage() + "."
         );
+    }
+
+    private boolean supportsDockerSandbox(ProgrammingLanguage language) {
+        return language == ProgrammingLanguage.JAVA
+                || language == ProgrammingLanguage.PYTHON
+                || language == ProgrammingLanguage.CPP;
     }
 }

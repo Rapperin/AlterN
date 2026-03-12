@@ -15,6 +15,7 @@ public interface ProblemMapper {
     
     @Mapping(target = "difficulty", expression = "java(problem.getDifficulty() == null ? null : problem.getDifficulty().name())")
     @Mapping(target = "timeLimitMs", expression = "java(problem.resolveTimeLimitMs())")
+    @Mapping(target = "memoryLimitMb", expression = "java(problem.resolveMemoryLimitMb())")
     @Mapping(target = "submissionCount", expression = "java(problem.getSubmissions() == null ? 0 : problem.getSubmissions().size())")
     @Mapping(target = "starterCodes", expression = "java(toStarterCodes(problem))")
     @Mapping(target = "hintAvailable", ignore = true)
@@ -22,6 +23,7 @@ public interface ProblemMapper {
     @Mapping(target = "editorialAvailable", ignore = true)
     @Mapping(target = "editorialUnlocked", ignore = true)
     @Mapping(target = "viewerSolved", ignore = true)
+    @Mapping(target = "viewerBookmarked", ignore = true)
     @Mapping(target = "viewerStatus", ignore = true)
     @Mapping(target = "testCaseCount", ignore = true)
     @Mapping(target = "bestSubmissionStatus", ignore = true)

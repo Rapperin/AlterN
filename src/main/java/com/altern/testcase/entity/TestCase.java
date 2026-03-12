@@ -14,8 +14,10 @@ public class TestCase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
+    @Column(length = 10000)
     private String input;
     
+    @Column(length = 10000)
     private String expectedOutput;
 
     @Column(columnDefinition = "boolean default false")

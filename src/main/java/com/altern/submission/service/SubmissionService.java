@@ -18,17 +18,15 @@ import com.altern.submission.entity.Submission;
 import com.altern.submission.entity.SubmissionStatus;
 import com.altern.submission.mapper.SubmissionMapper;
 import com.altern.submission.repository.SubmissionRepository;
+import com.altern.submission.config.JudgeAsyncProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.altern.submission.judge.JudgeService;
-import com.altern.submission.judge.JudgeResult;
 import com.altern.submission.runner.CodeRunner;
 import com.altern.submission.runner.ExecutionRequest;
 import com.altern.submission.runner.ExecutionResult;
 import com.altern.submission.runner.ExecutionStatus;
-import com.altern.testcase.repository.TestCaseRepository;
+import com.altern.submission.runner.RunnerHealthService;
 import java.time.LocalDateTime;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,26 +35,41 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class SubmissionService {
-    
-    private final JudgeService judgeService;
-    private final TestCaseRepository testCaseRepository;
+
     private final SubmissionRepository submissionRepository;
     private final SubmissionMapper submissionMapper;
     private final ProblemRepository problemRepository;
     private final CurrentUserService currentUserService;
     private final CodeRunner codeRunner;
+    private final RunnerHealthService runnerHealthService;
+    private final SubmissionJudgingService submissionJudgingService;
+    private final SubmissionAsyncProcessor submissionAsyncProcessor;
+    private final JudgeAsyncProperties judgeAsyncProperties;
 
     public SubmissionResponse createSubmission(SubmissionCreateRequest request) {
         Problem problem = findProblem(request.getProblemId());
         UserAccount currentUser = currentUserService.requireCurrentUser();
-        Submission submission = buildSubmission(request, problem, currentUser);
-        submission = submissionRepository.save(submission);
+        ProgrammingLanguage language = parseLanguage(request.getLanguage());
+        ensureExecutionAvailable(language);
+        return createAndJudgeSubmission(problem, currentUser, language, request.getSourceCode());
+    }
 
-        JudgeResult judgeResult = runJudge(submission);
-        applyJudgeResult(submission, judgeResult);
+    public SubmissionResponse resubmitSubmission(Long submissionId) {
+        Submission submission = findAccessibleSubmission(submissionId);
+        if (submission.getStatus() == SubmissionStatus.PENDING) {
+            throw new SubmissionRetryNotAllowedException("Pending submissions cannot be retried yet.");
+        }
+        if (submission.getLanguage() == null || submission.getProblem() == null || submission.getUser() == null) {
+            throw new SubmissionRetryNotAllowedException("Submission is missing retry metadata.");
+        }
 
-        Submission savedSubmission = submissionRepository.save(submission);
-        return submissionMapper.toResponse(savedSubmission);
+        ensureExecutionAvailable(submission.getLanguage());
+        return createAndJudgeSubmission(
+                submission.getProblem(),
+                submission.getUser(),
+                submission.getLanguage(),
+                submission.getSourceCode()
+        );
     }
     
     public PageResponse<SubmissionResponse> getSubmissions(int page, int size) {
@@ -194,11 +207,14 @@ public class SubmissionService {
 
         String input = request.getInput() == null ? "" : request.getInput();
         String expectedOutput = emptyToNull(request.getExpectedOutput());
+        ProgrammingLanguage language = parseLanguage(request.getLanguage());
+        ensureExecutionAvailable(language);
         ExecutionResult result = executeWorkspaceRun(
-                parseLanguage(request.getLanguage()),
+                language,
                 request.getSourceCode(),
                 input,
-                resolveTimeLimitMs(problem)
+                resolveTimeLimitMs(problem),
+                resolveMemoryLimitMb(problem)
         );
 
         return buildReplayResponse(problem.getId(), expectedOutput, result);
@@ -216,16 +232,21 @@ public class SubmissionService {
         String input = request.getInput() == null ? "" : request.getInput();
         String expectedOutput = emptyToNull(request.getExpectedOutput());
         int timeLimitMs = resolveTimeLimitMs(problem);
+        int memoryLimitMb = resolveMemoryLimitMb(problem);
+        ProgrammingLanguage currentLanguage = parseLanguage(request.getLanguage());
+        ensureExecutionAvailable(currentLanguage);
+        ensureExecutionAvailable(baselineSubmission.getLanguage());
 
         WorkspaceCompareRunResponse currentRun = buildCompareRunResponse(
                 null,
-                parseLanguage(request.getLanguage()),
+                currentLanguage,
                 expectedOutput,
                 executeWorkspaceRun(
-                        parseLanguage(request.getLanguage()),
+                        currentLanguage,
                         request.getSourceCode(),
                         input,
-                        timeLimitMs
+                        timeLimitMs,
+                        memoryLimitMb
                 )
         );
 
@@ -237,7 +258,8 @@ public class SubmissionService {
                         baselineSubmission.getLanguage(),
                         baselineSubmission.getSourceCode(),
                         input,
-                        timeLimitMs
+                        timeLimitMs,
+                        memoryLimitMb
                 )
         );
 
@@ -260,15 +282,38 @@ public class SubmissionService {
                 .orElseThrow(() -> new ProblemNotFoundException(problemId));
     }
 
-    private Submission buildSubmission(SubmissionCreateRequest request, Problem problem, UserAccount currentUser) {
+    private Submission buildSubmission(
+            Problem problem,
+            UserAccount currentUser,
+            ProgrammingLanguage language,
+            String sourceCode
+    ) {
         Submission submission = new Submission();
         submission.setProblem(problem);
         submission.setUser(currentUser);
-        submission.setLanguage(parseLanguage(request.getLanguage()));
-        submission.setSourceCode(request.getSourceCode());
+        submission.setLanguage(language);
+        submission.setSourceCode(sourceCode);
         submission.setCreatedAt(LocalDateTime.now());
         submission.setStatus(SubmissionStatus.PENDING);
         return submission;
+    }
+
+    private SubmissionResponse createAndJudgeSubmission(
+            Problem problem,
+            UserAccount user,
+            ProgrammingLanguage language,
+            String sourceCode
+    ) {
+        Submission submission = buildSubmission(problem, user, language, sourceCode);
+        submission = submissionRepository.save(submission);
+
+        if (judgeAsyncProperties.isEnabled()) {
+            submissionAsyncProcessor.processSubmission(submission.getId());
+            return submissionMapper.toResponse(submission);
+        }
+
+        Submission savedSubmission = submissionJudgingService.evaluateSubmission(submission.getId());
+        return submissionMapper.toResponse(savedSubmission);
     }
 
     private ProgrammingLanguage parseLanguage(String language) {
@@ -277,31 +322,6 @@ public class SubmissionService {
         } catch (IllegalArgumentException e) {
             throw new InvalidProgrammingLanguageException(language);
         }
-    }
-
-    private JudgeResult runJudge(Submission submission) {
-        var testCases = testCaseRepository.findByProblem_Id(submission.getProblem().getId());
-        return judgeService.judge(
-                testCases,
-                submission.getLanguage(),
-                submission.getSourceCode(),
-                resolveTimeLimitMs(submission.getProblem())
-        );
-    }
-
-    private void applyJudgeResult(Submission submission, JudgeResult judgeResult) {
-        submission.setPassedTestCount(judgeResult.getPassedTestCount());
-        submission.setTotalTestCount(judgeResult.getTotalTestCount());
-        submission.setExecutionTime(judgeResult.getExecutionTime());
-        submission.setMemoryUsage(judgeResult.getMemoryUsage());
-        submission.setVerdictMessage(judgeResult.getVerdictMessage());
-        submission.setFailedTestIndex(judgeResult.getFailedTestIndex());
-        submission.setFailedVisibleCase(judgeResult.getFailedVisible());
-        submission.setFailedInputPreview(judgeResult.getFailedInputPreview());
-        submission.setFailedExpectedOutputPreview(judgeResult.getFailedExpectedOutputPreview());
-        submission.setFailedActualOutputPreview(judgeResult.getFailedActualOutputPreview());
-        submission.setStatus(judgeResult.getStatus());
-        submission.setJudgedAt(LocalDateTime.now());
     }
 
     private Submission findAccessibleSubmission(Long id) {
@@ -318,18 +338,32 @@ public class SubmissionService {
         return problem == null ? Problem.DEFAULT_TIME_LIMIT_MS : problem.resolveTimeLimitMs();
     }
 
+    private int resolveMemoryLimitMb(Problem problem) {
+        return problem == null ? Problem.DEFAULT_MEMORY_LIMIT_MB : problem.resolveMemoryLimitMb();
+    }
+
+    private void ensureExecutionAvailable(ProgrammingLanguage language) {
+        if (!runnerHealthService.isLanguageExecutionAvailable(language)) {
+            throw new ExecutionEnvironmentUnavailableException(
+                    runnerHealthService.buildLanguageUnavailableMessage(language)
+            );
+        }
+    }
+
     private ExecutionResult executeWorkspaceRun(
             ProgrammingLanguage language,
             String sourceCode,
             String input,
-            int timeLimitMs
+            int timeLimitMs,
+            int memoryLimitMb
     ) {
         return codeRunner.run(
                 new ExecutionRequest(
                         language,
                         sourceCode,
                         input,
-                        timeLimitMs
+                        timeLimitMs,
+                        memoryLimitMb
                 )
         );
     }

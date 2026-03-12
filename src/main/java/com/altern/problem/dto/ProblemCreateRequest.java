@@ -30,6 +30,9 @@ public class ProblemCreateRequest {
     @Positive
     private Integer timeLimitMs;
 
+    @Positive
+    private Integer memoryLimitMb;
+
     private List<@NotBlank String> tags;
 
     private List<@Valid ProblemExamplePayload> examples;

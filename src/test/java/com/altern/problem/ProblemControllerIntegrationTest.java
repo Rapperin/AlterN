@@ -9,6 +9,7 @@ import com.altern.submission.entity.ProgrammingLanguage;
 import com.altern.submission.entity.Submission;
 import com.altern.submission.entity.SubmissionStatus;
 import com.altern.submission.repository.SubmissionRepository;
+import com.altern.testcase.repository.TestCaseRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,9 @@ class ProblemControllerIntegrationTest {
     @Autowired
     private UserAccountRepository userAccountRepository;
 
+    @Autowired
+    private TestCaseRepository testCaseRepository;
+
     @Test
     void createProblemPersistsCustomTimeLimit() throws Exception {
         String adminToken = login("admin", "admin123");
@@ -68,6 +72,26 @@ class ProblemControllerIntegrationTest {
                 .andExpect(header().string("Location", org.hamcrest.Matchers.matchesPattern("/api/problems/\\d+")))
                 .andExpect(jsonPath("$.title").value("Timed Problem"))
                 .andExpect(jsonPath("$.timeLimitMs").value(250));
+    }
+
+    @Test
+    void createProblemPersistsCustomMemoryLimit() throws Exception {
+        String adminToken = login("admin", "admin123");
+
+        mockMvc.perform(post("/api/problems")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Memory Bound Problem",
+                                  "description": "Checks custom memory limits.",
+                                  "difficulty": "EASY",
+                                  "memoryLimitMb": 384
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Memory Bound Problem"))
+                .andExpect(jsonPath("$.memoryLimitMb").value(384));
     }
 
     @Test
@@ -101,6 +125,83 @@ class ProblemControllerIntegrationTest {
     }
 
     @Test
+    void bookmarkProblemUpdatesViewerState() throws Exception {
+        Problem problem = problemRepository.save(problem("Bookmarkable Problem"));
+        String demoToken = login("demo", "demo123");
+
+        mockMvc.perform(get("/api/problems/{id}", problem.getId())
+                        .header("Authorization", "Bearer " + demoToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.viewerBookmarked").value(false));
+
+        mockMvc.perform(post("/api/problems/{id}/bookmark", problem.getId())
+                        .header("Authorization", "Bearer " + demoToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/problems/{id}", problem.getId())
+                        .header("Authorization", "Bearer " + demoToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.viewerBookmarked").value(true));
+
+        mockMvc.perform(get("/api/problems?page=0&size=20&title=Bookmarkable Problem")
+                        .header("Authorization", "Bearer " + demoToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].viewerBookmarked").value(true));
+
+        mockMvc.perform(delete("/api/problems/{id}/bookmark", problem.getId())
+                        .header("Authorization", "Bearer " + demoToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/problems/{id}", problem.getId())
+                        .header("Authorization", "Bearer " + demoToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.viewerBookmarked").value(false));
+    }
+
+    @Test
+    void problemStatsReturnsPublicCommunitySnapshot() throws Exception {
+        UserAccount demoUser = userAccountRepository.findByUsername("demo").orElseThrow();
+        UserAccount adminUser = userAccountRepository.findByUsername("admin").orElseThrow();
+
+        Problem problem = new Problem();
+        problem.setTitle("Stats Problem");
+        problem.setDescription("Community snapshot coverage.");
+        problem.setDifficulty(Difficulty.MEDIUM);
+        problem = problemRepository.save(problem);
+
+        submissionRepository.save(submission(problem, demoUser, SubmissionStatus.WRONG_ANSWER));
+        submissionRepository.save(submission(problem, demoUser));
+
+        Submission pythonAccepted = submission(problem, demoUser);
+        pythonAccepted.setLanguage(ProgrammingLanguage.PYTHON);
+        pythonAccepted.setExecutionTime(7);
+        pythonAccepted.setMemoryUsage(18);
+        pythonAccepted.setJudgedAt(LocalDateTime.now().minusMinutes(1));
+        pythonAccepted.setCreatedAt(pythonAccepted.getJudgedAt().minusSeconds(5));
+        submissionRepository.save(pythonAccepted);
+
+        Submission adminAccepted = submission(problem, adminUser);
+        adminAccepted.setExecutionTime(1);
+        adminAccepted.setMemoryUsage(1);
+        submissionRepository.save(adminAccepted);
+
+        mockMvc.perform(get("/api/problems/{id}/stats", problem.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.problemTitle").value("Stats Problem"))
+                .andExpect(jsonPath("$.totalSubmissions").value(3))
+                .andExpect(jsonPath("$.acceptedSubmissions").value(2))
+                .andExpect(jsonPath("$.acceptedUsers").value(1))
+                .andExpect(jsonPath("$.acceptanceRate").value(67))
+                .andExpect(jsonPath("$.mostUsedLanguage").value("JAVA"))
+                .andExpect(jsonPath("$.languageBreakdown.JAVA").value(2))
+                .andExpect(jsonPath("$.languageBreakdown.PYTHON").value(1))
+                .andExpect(jsonPath("$.languageBreakdown.CPP").value(0))
+                .andExpect(jsonPath("$.fastestExecutionTime").value(7))
+                .andExpect(jsonPath("$.lowestMemoryUsage").value(18))
+                .andExpect(jsonPath("$.latestAcceptedAt").isNotEmpty());
+    }
+
+    @Test
     void createProblemPersistsRichStatementFields() throws Exception {
         String adminToken = login("admin", "admin123");
 
@@ -120,6 +221,7 @@ class ProblemControllerIntegrationTest {
                                   "editorialContent": "Use the arithmetic series formula.",
                                   "difficulty": "MEDIUM",
                                   "timeLimitMs": 800,
+                                  "memoryLimitMb": 320,
                                   "tags": ["math", "dp"],
                                   "examples": [
                                     {
@@ -140,6 +242,7 @@ class ProblemControllerIntegrationTest {
                 .andExpect(jsonPath("$.outputFormat").value("Print the answer."))
                 .andExpect(jsonPath("$.hintTitle").value("Start small"))
                 .andExpect(jsonPath("$.hintContent").value("Try the first few terms manually."))
+                .andExpect(jsonPath("$.memoryLimitMb").value(320))
                 .andExpect(jsonPath("$.hintAvailable").value(true))
                 .andExpect(jsonPath("$.hintUnlocked").value(true))
                 .andExpect(jsonPath("$.editorialTitle").value("Closed form"))
@@ -169,6 +272,20 @@ class ProblemControllerIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void seededCatalogSupportsLongMultilineTestCases() {
+        Problem problem = problemRepository.findByTitleIgnoreCase("Maximum Path Sum I")
+                .orElseThrow();
+
+        boolean hasLongCase = testCaseRepository.findByProblem_Id(problem.getId()).stream()
+                .anyMatch(testCase -> testCase.getInput() != null && testCase.getInput().length() > 255);
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                hasLongCase,
+                "Seeded catalog should preserve long multiline testcase inputs."
+        );
     }
 
     @Test
@@ -291,6 +408,7 @@ class ProblemControllerIntegrationTest {
                                   "hintContent": "Try a formula first.",
                                   "difficulty": "HARD",
                                   "timeLimitMs": 750,
+                                  "memoryLimitMb": 192,
                                   "tags": ["graphs", "search"],
                                   "examples": [
                                     {
@@ -308,6 +426,7 @@ class ProblemControllerIntegrationTest {
                 .andExpect(jsonPath("$.title").value("Updated Title"))
                 .andExpect(jsonPath("$.difficulty").value("HARD"))
                 .andExpect(jsonPath("$.timeLimitMs").value(750))
+                .andExpect(jsonPath("$.memoryLimitMb").value(192))
                 .andExpect(jsonPath("$.constraints").value("n is positive"))
                 .andExpect(jsonPath("$.inputFormat").value("One integer n."))
                 .andExpect(jsonPath("$.outputFormat").value("One integer answer."))
@@ -367,7 +486,14 @@ class ProblemControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.title == 'Multiples of 3 or 5')]").exists())
                 .andExpect(jsonPath("$.content[?(@.title == 'Even Fibonacci Sum')]").exists())
-                .andExpect(jsonPath("$.content[?(@.title == 'Largest Prime Factor')]").exists());
+                .andExpect(jsonPath("$.content[?(@.title == 'Largest Prime Factor')]").exists())
+                .andExpect(jsonPath("$.content[?(@.title == 'Smallest Multiple')]").exists())
+                .andExpect(jsonPath("$.content[?(@.title == 'Lattice Paths')]").exists())
+                .andExpect(jsonPath("$.content[?(@.title == 'Power Digit Sum')]").exists())
+                .andExpect(jsonPath("$.content[?(@.title == 'Coin Sums')]").exists())
+                .andExpect(jsonPath("$.content[?(@.title == 'Maximum Path Sum I')]").exists())
+                .andExpect(jsonPath("$.content[?(@.title == 'Spiral Diagonal Sum')]").exists())
+                .andExpect(jsonPath("$.content[?(@.title == 'Highly Divisible Triangle')]").exists());
     }
 
     @Test

@@ -16,6 +16,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class Problem {
 
     public static final int DEFAULT_TIME_LIMIT_MS = 5000;
+    public static final int DEFAULT_MEMORY_LIMIT_MB = 256;
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -52,6 +53,8 @@ public class Problem {
 
     private Integer timeLimitMs;
 
+    private Integer memoryLimitMb;
+
     @Column(name = "starter_code_java", length = 8000)
     private String starterCodeJava;
 
@@ -83,10 +86,15 @@ public class Problem {
         return timeLimitMs == null || timeLimitMs < 1 ? DEFAULT_TIME_LIMIT_MS : timeLimitMs;
     }
 
+    public int resolveMemoryLimitMb() {
+        return memoryLimitMb == null || memoryLimitMb < 1 ? DEFAULT_MEMORY_LIMIT_MB : memoryLimitMb;
+    }
+
     @PrePersist
     @PreUpdate
     void applyDefaults() {
         timeLimitMs = resolveTimeLimitMs();
+        memoryLimitMb = resolveMemoryLimitMb();
         if (tags == null) {
             tags = new ArrayList<>();
         }

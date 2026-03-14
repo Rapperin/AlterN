@@ -9,32 +9,24 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class HomePageIntegrationTest {
+class ContinuumPageIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @Test
-    void rootServesTheLandingPage() throws Exception {
-        mockMvc.perform(get("/"))
+    void continuumServesTheCommunityAndJourneySurface() throws Exception {
+        mockMvc.perform(get("/continuum.html"))
                 .andExpect(status().isOk())
-                .andExpect(forwardedUrl("index.html"));
-
-        mockMvc.perform(get("/index.html"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("AlterN")))
-                .andExpect(content().string(containsString("Enter Arena")))
-                .andExpect(content().string(containsString("Open Continuum")))
-                .andExpect(content().string(containsString("Open Sanctum")))
-                .andExpect(content().string(containsString("Runtime readiness")))
-                .andExpect(content().string(containsString("Featured riddles")))
-                .andExpect(content().string(containsString("Structure Shift")))
                 .andExpect(content().string(containsString("Continuum")))
+                .andExpect(content().string(containsString("Journey Map")))
+                .andExpect(content().string(containsString("Personal Continuum")))
+                .andExpect(content().string(containsString("Hall of Fame")))
+                .andExpect(content().string(containsString("Public Solver Card")))
                 .andExpect(content().string(containsString("Sanctum")))
                 .andExpect(content().string(containsString("Session")));
     }

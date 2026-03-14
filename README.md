@@ -1,14 +1,17 @@
 # AlterN
 
 AlterN is a coding challenge platform inspired by Project Euler.
-It now includes a Spring Boot backend plus a simple built-in frontend where you can browse problems, write code, and submit solutions.
+It now includes a Spring Boot backend plus a built-in frontend split into four clear surfaces: a landing page, a dedicated arena workspace, a separate continuum surface for journey/community flows, and a dedicated sanctum for admin authoring.
 
 ## Features
 
-- Built-in web interface at `/`
+- Built-in landing page at `/`
+- Dedicated solve workspace at `/arena.html`
+- Separate journey/community surface at `/continuum.html`
+- Dedicated admin authoring surface at `/sanctum.html`
 - JWT auth with register/login flow
 - Seeded `demo` and `admin` accounts for local development
-- Admin authoring console in the built-in web UI
+- Admin authoring console in the built-in Sanctum UI
 - Flyway-managed schema migrations
 - List coding problems
 - Get problem by id
@@ -31,7 +34,7 @@ It now includes a Spring Boot backend plus a simple built-in frontend where you 
 - Public global leaderboard plus problem-level best accepted run rankings
 - Public user profiles with rank, streak, language mix, and recent solved history
 - Problem detail community snapshot with acceptance rate, solver count, and language mix
-- Sidebar problem scope filters for `all / remaining / attempted / solved`
+- Archive-side problem scope filters for `all / remaining / attempted / solved / saved`
 - Sidebar discovery facets for difficulty and tags
 - Admin catalog health overview plus curation filters for spotting thin problems and weak testcase depth
 - Admin authoring priorities card with one-click jumps into examples, hint, editorial, and testcase editors
@@ -89,6 +92,9 @@ It now includes a Spring Boot backend plus a simple built-in frontend where you 
 
 ### Web UI
 - `GET /`
+- `GET /arena.html`
+- `GET /continuum.html`
+- `GET /sanctum.html`
 
 ### Auth
 - `POST /api/auth/register`
@@ -141,6 +147,21 @@ Web UI:
 http://localhost:8081/
 ```
 
+Arena:
+```text
+http://localhost:8081/arena.html
+```
+
+Continuum:
+```text
+http://localhost:8081/continuum.html
+```
+
+Sanctum:
+```text
+http://localhost:8081/sanctum.html
+```
+
 Default local accounts:
 ```text
 demo / demo123
@@ -190,12 +211,12 @@ Admin web flow:
 - Editorial content is visible to `ADMIN` immediately and unlocks for users after `ACCEPTED`
 - Hint content is visible to `ADMIN` immediately and unlocks for users after their first submission
 - Problem list and detail responses now include per-user progress when authenticated
-- Built-in sidebar now includes a per-user dashboard with solved counts, language mix, and recent accepted problems
+- Continuum now carries the per-user dashboard with solved counts, language mix, and recent accepted problems
 - Dashboard now surfaces where you left off, recent unsolved attempts, and a suggested next problem
 - Dashboard now also shows recent daily activity plus current/best accepted streak
 - Problem cards and the built-in editor now expose local per-problem drafts so unfinished work survives problem switches
-- Built-in UI now also exposes a public hall of fame plus a per-problem accepted-run leaderboard
-- Hall of Fame and problem leaderboard rows now open a public solver profile card
+- Continuum now exposes the public Hall of Fame while the arena still keeps per-problem accepted-run leaderboards
+- Hall of Fame and problem leaderboard rows now open a public solver profile inside Continuum
 - Dashboard and public profiles now surface computed achievement badges from submission history
 - Dashboard and public profiles now also show a computed journey tier plus nearest milestone goals
 - Dashboard now adds a journey-focused problem recommendation tied to the current top milestone

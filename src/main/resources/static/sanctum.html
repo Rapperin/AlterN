@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlterN Sanctum</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/js/pages/sanctum.js"></script>
+</head>
+<body class="page--sanctum" data-workspace-mode="engaged">
+<div class="page-shell">
+    <div class="stage-veil stage-veil--north" aria-hidden="true"></div>
+    <div class="stage-veil stage-veil--south" aria-hidden="true"></div>
+
+    <header class="hero">
+        <div class="hero__aura" aria-hidden="true">
+            <span class="hero__aura-ring"></span>
+            <span class="hero__aura-ring hero__aura-ring--inner"></span>
+        </div>
+        <div class="hero__content">
+            <div class="hero__copy">
+                <div class="hero__eyebrow">Catalog operations and hidden-depth authoring workspace</div>
+                <h1>Sanctum</h1>
+                <p>
+                    Catalog health, problem editing ve hidden testcase coverage tek admin workspace
+                    icinde calisiyor. Solve yuzeyini kirletmeden icerik operasyonunu burada
+                    yonetiyoruz.
+                </p>
+                <div class="hero__mantra" aria-label="Sanctum ritmi">
+                    <span>Authoring</span>
+                    <span>Coverage</span>
+                    <span>Hidden depth</span>
+                </div>
+            </div>
+            <div class="hero__actions">
+                <div class="hero__links">
+                    <a class="hero__link hero__link--ghost" href="/">Landing</a>
+                    <a class="hero__link hero__link--ghost" href="/arena.html">Arena</a>
+                    <a class="hero__link hero__link--ghost" href="/continuum.html">Continuum</a>
+                    <a class="hero__link" href="/sanctum.html">Sanctum</a>
+                </div>
+
+                <section class="auth-panel">
+                    <div class="auth-panel__header">
+                        <div>
+                            <p class="hero__eyebrow">Session</p>
+                            <h2 id="authStatus">Admin girisi</h2>
+                        </div>
+                    </div>
+
+                    <form id="authForm" class="auth-form">
+                        <label>
+                            <span>Username</span>
+                            <input id="authUsername" type="text" autocomplete="username" placeholder="username">
+                        </label>
+                        <label>
+                            <span>Password</span>
+                            <input id="authPassword" type="password" autocomplete="current-password" placeholder="password">
+                        </label>
+                        <div class="auth-actions">
+                            <button id="loginButton" type="submit" class="button">Login</button>
+                            <button id="registerButton" type="button" class="button button--ghost">Register</button>
+                        </div>
+                    </form>
+
+                    <div id="authCurrent" class="auth-current" hidden>
+                        <p><strong id="authCurrentUsername">-</strong></p>
+                        <p>Role: <span id="authCurrentRole">-</span></p>
+                        <div class="auth-actions">
+                            <a class="button button--ghost" href="/arena.html">Arena'ya don</a>
+                            <button id="logoutButton" type="button" class="button button--ghost">Logout</button>
+                        </div>
+                    </div>
+
+                    <p id="authFeedback" class="auth-feedback">Sanctum icin admin yetkili hesabinla giris yapip catalog operasyonunu acabilirsin.</p>
+                </section>
+            </div>
+        </div>
+    </header>
+
+    <main class="workspace workspace--sanctum">
+        <aside class="panel panel--sidebar panel--archive sanctum-rail">
+            <div class="panel__header">
+                <div>
+                    <p class="panel__eyebrow">Archive</p>
+                    <h2>Authoring Queue</h2>
+                </div>
+                <span id="problemCount" class="badge">0 problem</span>
+            </div>
+
+            <label class="search">
+                <span>Ara</span>
+                <input id="problemSearch" type="search" placeholder="Baslik veya zorluk">
+            </label>
+
+            <div id="problemFacetCard" class="facet-card">
+                <div class="facet-card__header">
+                    <div>
+                        <p class="panel__eyebrow panel__eyebrow--muted">Problem focus</p>
+                        <h3>Difficulty, Tags & Attention</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div id="selectedProblemCard" class="workspace-card">
+                <div class="empty-state">Bir problem sec; secili codex ozeti burada gorunecek.</div>
+            </div>
+
+            <div id="problemList" class="problem-list"></div>
+        </aside>
+
+        <div class="workbench workbench--sanctum">
+            <section class="panel panel--sanctum sanctum-panel">
+                <div class="panel__header">
+                    <div>
+                        <p class="panel__eyebrow">Operations</p>
+                        <h2>Catalog Control</h2>
+                    </div>
+                </div>
+
+                <div class="sanctum-insight-grid">
+                    <div id="catalogHealthCard" class="dashboard-card dashboard-card--admin">
+                        <div class="empty-state">Catalog Health yalnizca admin oturumunda yuklenir.</div>
+                    </div>
+
+                    <div id="authoringFocusCard" class="dashboard-card dashboard-card--admin">
+                        <div class="empty-state">Authoring priorities secili problem icin burada gorunur.</div>
+                    </div>
+                </div>
+
+                <div id="authorFeedback" class="feedback feedback--idle">
+                    Sanctum authoring ve catalog curation icin hazir.
+                </div>
+            </section>
+
+            <section class="panel panel--sanctum sanctum-panel">
+                <div class="panel__header">
+                    <div>
+                        <p class="panel__eyebrow">Authoring</p>
+                        <h2>Problem & Testcase Editor</h2>
+                    </div>
+                </div>
+
+                <div class="sanctum-board">
+                    <form id="problemCreateForm" class="author-form">
+                        <h3>Problem Editor</h3>
+                        <p class="author-note">Secili problem forma yuklenir. Istersen formu temizleyip yeni bir codex de acabilirsin.</p>
+                        <label>
+                            <span>Baslik</span>
+                            <input id="problemCreateTitle" type="text" placeholder="Yeni problem basligi">
+                        </label>
+                        <label>
+                            <span>Aciklama</span>
+                            <textarea id="problemCreateDescription" rows="6" placeholder="Problem metni"></textarea>
+                        </label>
+                        <label>
+                            <span>Constraints</span>
+                            <textarea id="problemCreateConstraints" rows="4" placeholder="1 <= n <= 1000000"></textarea>
+                        </label>
+                        <label>
+                            <span>Input Format</span>
+                            <textarea id="problemCreateInputFormat" rows="3" placeholder="A single integer n."></textarea>
+                        </label>
+                        <label>
+                            <span>Output Format</span>
+                            <textarea id="problemCreateOutputFormat" rows="3" placeholder="Print the answer as a single integer."></textarea>
+                        </label>
+                        <label>
+                            <span>Hint Title</span>
+                            <input id="problemCreateHintTitle" type="text" placeholder="Think in groups">
+                        </label>
+                        <label>
+                            <span>Hint Content</span>
+                            <textarea id="problemCreateHintContent" rows="5" placeholder="Ilk asama ipucunu yaz."></textarea>
+                        </label>
+                        <label>
+                            <span>Editorial Title</span>
+                            <input id="problemCreateEditorialTitle" type="text" placeholder="Arithmetic progression shortcut">
+                        </label>
+                        <label>
+                            <span>Editorial Content</span>
+                            <textarea id="problemCreateEditorialContent" rows="8" placeholder="Cozum notunu ve ana fikri yaz."></textarea>
+                        </label>
+                        <div class="author-form__row">
+                            <label>
+                                <span>Zorluk</span>
+                                <select id="problemCreateDifficulty">
+                                    <option value="EASY">EASY</option>
+                                    <option value="MEDIUM">MEDIUM</option>
+                                    <option value="HARD">HARD</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>Sure limiti (ms)</span>
+                                <input id="problemCreateTimeLimit" type="number" min="1" value="5000">
+                            </label>
+                            <label>
+                                <span>Bellek limiti (MB)</span>
+                                <input id="problemCreateMemoryLimit" type="number" min="1" value="256">
+                            </label>
+                        </div>
+                        <label>
+                            <span>Tags</span>
+                            <input id="problemCreateTags" type="text" placeholder="math, dp, number-theory">
+                        </label>
+                        <label>
+                            <span>Examples JSON</span>
+                            <textarea id="problemCreateExamples" rows="8" placeholder='[{"input":"10","output":"23","explanation":"Sample explanation"}]'></textarea>
+                        </label>
+                        <label>
+                            <span>Starter Codes JSON</span>
+                            <textarea id="problemCreateStarterCodes" rows="10" placeholder='{"JAVA":"public class Solution {\\n    public static long solve(long n) {\\n        return 0L;\\n    }\\n}","PYTHON":"n = int(input().strip())\\nprint(0)","CPP":"#include <iostream>\\nusing namespace std;\\n\\nint main() {\\n    long long n;\\n    cin >> n;\\n    cout << 0;\\n    return 0;\\n}"}'></textarea>
+                        </label>
+                        <div class="author-actions">
+                            <button type="submit" class="button">Yeni Problem</button>
+                            <button id="problemUpdateButton" type="button" class="button button--ghost">Secili Problemi Guncelle</button>
+                            <button id="problemClearButton" type="button" class="button button--ghost">Formu Temizle</button>
+                            <button id="problemDeleteButton" type="button" class="button button--ghost button--danger">Problemi Sil</button>
+                        </div>
+                    </form>
+
+                    <div class="sanctum-stack">
+                        <form id="testCaseCreateForm" class="author-form">
+                            <h3>Test Case Editor</h3>
+                            <p class="author-note">Secili problem: <strong id="adminSelectedProblem">-</strong></p>
+                            <p class="author-note">Duzenlenen case: <strong id="adminSelectedTestCase">Yeni kayit</strong></p>
+                            <label>
+                                <span>Input</span>
+                                <textarea id="testCaseInput" rows="4" placeholder="stdin verisi"></textarea>
+                            </label>
+                            <label>
+                                <span>Expected Output</span>
+                                <textarea id="testCaseExpectedOutput" rows="4" placeholder="beklenen cikti"></textarea>
+                            </label>
+                            <label class="author-checkbox">
+                                <input id="testCaseHidden" type="checkbox">
+                                <span>Hidden testcase</span>
+                            </label>
+                            <div class="author-actions">
+                                <button id="testCaseSubmitButton" type="submit" class="button">Test Case Kaydet</button>
+                                <button id="testCaseCancelButton" type="button" class="button button--ghost" hidden>Duzenlemeyi Iptal</button>
+                            </div>
+                        </form>
+
+                        <div class="author-listing">
+                            <div class="panel__header">
+                                <div>
+                                    <p class="panel__eyebrow">Admin Gorunumu</p>
+                                    <h3>Butun Test Caseler</h3>
+                                </div>
+                            </div>
+                            <div id="adminTestCaseList" class="sample-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <details class="author-disclosure">
+                    <summary>Bulk test case import</summary>
+                    <form id="testCaseBulkForm" class="author-form author-form--full">
+                        <h3>Bulk Test Case Import</h3>
+                        <p class="author-note">JSON array yapistir. Ornek: <code>[{"input":"10","expectedOutput":"23","hidden":false}]</code></p>
+                        <label>
+                            <span>Payload</span>
+                            <textarea id="testCaseBulkPayload" rows="8" placeholder='[{"input":"10","expectedOutput":"23","hidden":false}]'></textarea>
+                        </label>
+                        <div class="author-actions">
+                            <button type="submit" class="button">Bulk Import</button>
+                        </div>
+                    </form>
+                </details>
+
+                <details class="author-disclosure">
+                    <summary>Bulk problem import</summary>
+                    <form id="problemBulkForm" class="author-form author-form--full">
+                        <h3>Bulk Problem Import</h3>
+                        <p class="author-note">JSON array veya <code>{ "problems": [...] }</code> yapisi kabul edilir. Her problem payload'i isterse kendi <code>testCases</code> listesini de tasiyabilir.</p>
+                        <label>
+                            <span>Payload</span>
+                            <textarea id="problemBulkPayload" rows="12" placeholder='[{"title":"New Problem","description":"...","difficulty":"EASY","inputFormat":"A single integer n.","outputFormat":"Print the answer.","timeLimitMs":5000,"memoryLimitMb":256,"tags":["math"],"examples":[{"input":"10","output":"23"}],"starterCodes":{"JAVA":"public class Solution {}"},"testCases":[{"input":"10","expectedOutput":"23","hidden":false},{"input":"1000","expectedOutput":"233168","hidden":true}]}]'></textarea>
+                        </label>
+                        <div class="author-actions">
+                            <button type="submit" class="button">Problem Bulk Import</button>
+                        </div>
+                    </form>
+                </details>
+            </section>
+        </div>
+    </main>
+</div>
+</body>
+</html>

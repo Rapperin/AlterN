@@ -5,28 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AlterN</title>
     <link rel="stylesheet" href="/styles.css">
-    <script src="/app.js" defer></script>
+    <script type="module" src="/js/pages/landing.js"></script>
 </head>
-<body>
+<body class="page--landing">
 <div class="page-shell">
-    <header class="hero">
-        <div class="hero__eyebrow">Euler ruhu, sade bir online judge akisi</div>
+    <div class="stage-veil stage-veil--north" aria-hidden="true"></div>
+    <div class="stage-veil stage-veil--south" aria-hidden="true"></div>
+
+    <header class="hero hero--landing">
+        <div class="hero__aura" aria-hidden="true">
+            <span class="hero__aura-ring"></span>
+            <span class="hero__aura-ring hero__aura-ring--inner"></span>
+        </div>
         <div class="hero__content">
-            <div>
+            <div class="hero__copy">
+                <div class="hero__eyebrow">Judge-first coding product</div>
                 <h1>AlterN</h1>
                 <p>
-                    Problemi sec, kodunu yaz, sonucu aninda gor. AlterN su anda lokal derleme ve
-                    calistirma yapan sade bir online judge MVP'si.
+                    Curated archive, live runtime, personal progress ve authoring tools
+                    tek sistemde calisiyor. Burasi giris ve durum panosu; asil solve
+                    akisi Arena'da aciliyor.
                 </p>
+                <div class="hero__mantra" aria-label="AlterN ruhu">
+                    <span>Curated archive</span>
+                    <span>Live runtime</span>
+                    <span>Real submissions</span>
+                </div>
                 <div id="preflightBanner" class="preflight-banner" hidden>
                     <strong>Runtime readiness</strong>
                     <p>Execution preflight bilgisi yukleniyor.</p>
                 </div>
             </div>
+
             <div class="hero__actions">
                 <div class="hero__links">
-                    <a class="hero__link" href="/swagger">Swagger</a>
-                    <a class="hero__link hero__link--ghost" href="/api/problems">Problems API</a>
+                    <a id="landingEnterLink" class="hero__link" href="/arena.html">Enter Arena</a>
+                    <a class="hero__link hero__link--ghost" href="/continuum.html">Open Continuum</a>
+                    <a class="hero__link hero__link--ghost" href="/sanctum.html">Open Sanctum</a>
                 </div>
 
                 <section class="auth-panel">
@@ -40,11 +55,11 @@
                     <form id="authForm" class="auth-form">
                         <label>
                             <span>Username</span>
-                            <input id="authUsername" type="text" autocomplete="username" placeholder="demo">
+                            <input id="authUsername" type="text" autocomplete="username" placeholder="username">
                         </label>
                         <label>
                             <span>Password</span>
-                            <input id="authPassword" type="password" autocomplete="current-password" placeholder="demo123">
+                            <input id="authPassword" type="password" autocomplete="current-password" placeholder="password">
                         </label>
                         <div class="auth-actions">
                             <button id="loginButton" type="submit" class="button">Login</button>
@@ -55,453 +70,115 @@
                     <div id="authCurrent" class="auth-current" hidden>
                         <p><strong id="authCurrentUsername">-</strong></p>
                         <p>Role: <span id="authCurrentRole">-</span></p>
-                        <button id="logoutButton" type="button" class="button button--ghost">Logout</button>
+                        <div class="auth-actions">
+                            <a class="button" href="/arena.html">Arena'ya gir</a>
+                            <a class="button button--ghost" href="/continuum.html">Continuum</a>
+                            <a class="button button--ghost" href="/sanctum.html">Sanctum</a>
+                            <button id="logoutButton" type="button" class="button button--ghost">Logout</button>
+                        </div>
                     </div>
 
-                    <p id="authFeedback" class="auth-feedback">
-                        Demo hesap: <code>demo / demo123</code> | Admin: <code>admin / admin123</code>
-                    </p>
+                    <p id="authFeedback" class="auth-feedback">Session acmak icin hesabinla giris yap ya da yeni bir hesap olustur.</p>
                 </section>
             </div>
         </div>
     </header>
 
-    <main class="workspace">
-        <aside class="panel panel--sidebar">
+    <main class="landing-main">
+        <section class="panel panel--codex landing-panel landing-panel--primary">
             <div class="panel__header">
                 <div>
-                    <p class="panel__eyebrow">Problem havuzu</p>
-                    <h2>Challenge Listesi</h2>
+                    <p class="panel__eyebrow">Operational front door</p>
+                    <h2>Featured riddles</h2>
                 </div>
-                <span id="problemCount" class="badge">0 problem</span>
+                <span id="landingProblemCount" class="badge">0 problem</span>
             </div>
 
-            <label class="search">
-                <span>Ara</span>
-                <input id="problemSearch" type="search" placeholder="Baslik veya zorluk">
-            </label>
-
-            <div id="problemFacetCard" class="facet-card">
-                <div class="facet-card__header">
-                    <div>
-                        <p class="panel__eyebrow panel__eyebrow--muted">Problem focus</p>
-                        <h3>Difficulty & Tags</h3>
-                    </div>
-                </div>
+            <div class="landing-stats">
+                <article class="stat-card">
+                    <span>Archive</span>
+                    <strong id="landingMetricProblems">0</strong>
+                    <small>ready problems</small>
+                </article>
+                <article class="stat-card">
+                    <span>Runtime</span>
+                    <strong id="landingMetricStatus">Sync</strong>
+                    <small>judge readiness</small>
+                </article>
+                <article class="stat-card">
+                    <span>Languages</span>
+                    <strong id="landingMetricLanguages">0/0</strong>
+                    <small>execution coverage</small>
+                </article>
+                <article class="stat-card">
+                    <span>Mode</span>
+                    <strong id="landingMetricMode">Local</strong>
+                    <small>active runner path</small>
+                </article>
             </div>
 
-            <div id="userDashboardCard" class="dashboard-card">
-                <div class="dashboard-card__header">
-                    <div>
-                        <p class="panel__eyebrow panel__eyebrow--muted">Your Dashboard</p>
-                        <h3>Progress Snapshot</h3>
-                    </div>
-                </div>
-            </div>
-
-            <div id="runnerHealthCard" class="dashboard-card">
-                <div class="dashboard-card__header">
-                    <div>
-                        <p class="panel__eyebrow panel__eyebrow--muted">Infra</p>
-                        <h3>Execution Runtime</h3>
-                    </div>
-                </div>
-            </div>
-
-            <div id="communityLeaderboardCard" class="dashboard-card">
-                <div class="dashboard-card__header">
-                    <div>
-                        <p class="panel__eyebrow panel__eyebrow--muted">Community</p>
-                        <h3>Hall of Fame</h3>
-                    </div>
-                </div>
-            </div>
-
-            <div id="userProfileCard" class="dashboard-card">
-                <div class="dashboard-card__header">
-                    <div>
-                        <p class="panel__eyebrow panel__eyebrow--muted">Community</p>
-                        <h3>Public Profile</h3>
-                    </div>
-                </div>
-            </div>
-
-            <div id="progressSummary" class="progress-summary"></div>
-
-            <div id="problemList" class="problem-list"></div>
-        </aside>
-
-        <section class="panel panel--problem">
-            <div class="panel__header">
-                <div>
-                    <p class="panel__eyebrow">Secili problem</p>
-                    <h2 id="problemTitle">Yukleniyor...</h2>
+            <div class="landing-command">
+                <div class="landing-command__copy">
+                    <p class="landing-command__eyebrow">Launch path</p>
+                    <h3>Enter the product with live operational signals</h3>
+                    <p class="landing-note">
+                        Featured problems, runtime readiness ve product surfaces tek viewport icinde
+                        gorunsun istedik. Buradan dogrudan solve akisini baslatabilir ya da kendi
+                        ritmine gore Continuum ve Sanctum'a gecis yapabilirsin.
+                    </p>
                 </div>
                 <div class="workspace-card__actions">
-                    <button id="problemBookmarkButton" type="button" class="button button--ghost button--small" hidden>Save for later</button>
-                    <span id="problemDifficulty" class="difficulty difficulty--muted">-</span>
+                    <a class="button" href="/arena.html">Open Arena</a>
+                    <a class="button button--ghost" href="/continuum.html">Continuum</a>
+                    <a class="button button--ghost" href="/sanctum.html">Sanctum</a>
                 </div>
             </div>
 
-            <div class="stats-grid">
-                <article class="stat-card">
-                    <span>Visible samples</span>
-                    <strong id="visibleTestcaseCount">0</strong>
-                </article>
-                <article class="stat-card">
-                    <span>Total submissions</span>
-                    <strong id="submissionCount">0</strong>
-                </article>
-                <article class="stat-card">
-                    <span>Your status</span>
-                    <strong id="viewerStatus">Login</strong>
-                </article>
-                <article class="stat-card">
-                    <span>Time limit</span>
-                    <strong id="problemTimeLimit">5000 ms</strong>
-                </article>
-                <article class="stat-card">
-                    <span>Memory limit</span>
-                    <strong id="problemMemoryLimit">256 MB</strong>
-                </article>
-            </div>
-
-            <div class="problem-copy">
-                <h3>Aciklama</h3>
-                <p id="problemDescription">Problem aciklamasi yukleniyor.</p>
-            </div>
-
-            <div class="problem-copy">
-                <h3>Constraints</h3>
-                <p id="problemConstraints">Constraint bilgisi yukleniyor.</p>
-            </div>
-
-            <div class="problem-copy">
-                <h3>Input Format</h3>
-                <p id="problemInputFormat">Input format bilgisi yukleniyor.</p>
-            </div>
-
-            <div class="problem-copy">
-                <h3>Output Format</h3>
-                <p id="problemOutputFormat">Output format bilgisi yukleniyor.</p>
-            </div>
-
-            <div class="problem-copy">
-                <h3>Tags</h3>
-                <div id="problemTags" class="tag-list"></div>
-            </div>
-
-            <div class="samples">
-                <div class="samples__header">
-                    <div>
-                        <h3>Examples</h3>
-                        <p>Problem statement icindeki ornek girdiler ve beklenen ciktilar.</p>
-                    </div>
-                </div>
-                <div id="problemExampleList" class="sample-list"></div>
-            </div>
-
-            <div class="samples">
-                <div class="samples__header">
-                    <div>
-                        <h3>Public test cases</h3>
-                        <p>Yalnizca gorunur ornekler burada listelenir. Judge hidden testleri de kullanir.</p>
-                    </div>
-                </div>
-                <div id="sampleList" class="sample-list"></div>
-            </div>
-
-            <div class="samples">
-                <div class="samples__header">
-                    <div>
-                        <h3>Problem Leaderboard</h3>
-                        <p>Bu problemdeki en iyi accepted run'lar kullanici bazli siralanir.</p>
-                    </div>
-                </div>
-                <div id="problemLeaderboardCard" class="workspace-card"></div>
-            </div>
-
-            <div class="samples">
-                <div class="samples__header">
-                    <div>
-                        <h3>Community Snapshot</h3>
-                        <p>Bu problemdeki public cozum aktivitesinin ozetini gosterir.</p>
-                    </div>
-                </div>
-                <div id="problemStatsCard" class="workspace-card"></div>
-            </div>
-
-            <div class="samples">
-                <div class="samples__header">
-                    <div>
-                        <h3 id="problemHintHeading">Hint</h3>
-                        <p id="problemHintState">Ilk gonderimden sonra acilir.</p>
-                    </div>
-                </div>
-                <div id="problemHint" class="editorial-card"></div>
-            </div>
-
-            <div class="samples">
-                <div class="samples__header">
-                    <div>
-                        <h3 id="problemEditorialHeading">Editorial</h3>
-                        <p id="problemEditorialState">Accepted gonderimden sonra acilir.</p>
-                    </div>
-                </div>
-                <div id="problemEditorial" class="editorial-card"></div>
+            <div id="landingFeaturedList" class="landing-featured-list">
+                <div class="empty-state">Featured archive yukleniyor.</div>
             </div>
         </section>
 
-        <section class="panel panel--editor">
-            <div class="panel__header">
-                <div>
-                    <p class="panel__eyebrow">Workbench</p>
-                    <h2>Kodunu Yaz</h2>
-                </div>
-            </div>
-
-            <form id="submissionForm" class="editor-form">
-                <div class="editor-toolbar">
-                    <label>
-                        <span>Language</span>
-                        <select id="language">
-                            <option value="JAVA">JAVA</option>
-                            <option value="PYTHON">PYTHON</option>
-                            <option value="CPP">CPP</option>
-                        </select>
-                    </label>
-
-                    <button id="templateButton" type="button" class="button button--ghost">Starter code</button>
-                </div>
-
-                <div id="editorLanguageRecommendation" class="editor-language-recommendation" hidden></div>
-
-                <label class="editor-shell">
-                    <span>Source</span>
-                    <textarea id="sourceCode" spellcheck="false"></textarea>
-                </label>
-
-                <div class="editor-actions">
-                    <button id="submitButton" type="submit" class="button">Submit</button>
-                    <p id="editorNote" class="editor-note">JAVA gercek derlenir. Beklenen format: Solution.solve(...) veya Solution.main(...).</p>
-                </div>
-
-                <div id="editorRuntimeAssist" class="editor-runtime-assist" hidden></div>
-            </form>
-
-            <div id="draftStatusCard" class="feedback feedback--idle">
-                Local Drafts secili problemde otomatik kaydedilir.
-            </div>
-
-            <div id="submissionFeedback" class="feedback feedback--idle">
-                Bir problem sec ve ilk denemeni gonder.
-            </div>
-
-            <section class="replay-panel">
-                <div class="samples__header">
-                    <div>
-                        <h3>Custom Replay</h3>
-                        <p>Editordeki guncel kodu secili input ile tek sefer calistir.</p>
-                    </div>
-                    <button id="replayClearButton" type="button" class="button button--ghost button--small">Temizle</button>
-                </div>
-
-                <form id="replayForm" class="replay-form">
-                    <label class="editor-shell editor-shell--compact">
-                        <span>Input</span>
-                        <textarea id="replayInput" spellcheck="false" placeholder="Sample input veya kendi testin"></textarea>
-                    </label>
-
-                    <label class="editor-shell editor-shell--compact">
-                        <span>Expected Output (optional)</span>
-                        <textarea id="replayExpectedOutput" spellcheck="false" placeholder="Beklenen ciktiyi eklersen sonuc karsilastirilir"></textarea>
-                    </label>
-
-                    <div class="editor-actions">
-                        <button id="replayRunButton" type="submit" class="button">Run custom input</button>
-                        <p class="editor-note">Replay, problemin time limit'i ile calisir ve submission kaydi olusturmaz.</p>
-                    </div>
-                </form>
-
-                <div id="replayBaselineCard" class="feedback feedback--idle">
-                    Submission Baseline secersen custom replay ayni inputta eski gonderiminle karsilastirilir.
-                </div>
-
-                <div id="replayResultCard" class="feedback feedback--idle">
-                    Sample veya custom input ile tek seferlik run sonucu burada gorunecek.
-                </div>
-
-                <div id="replayCompareCard"></div>
-            </section>
-        </section>
-
-        <section class="panel panel--submissions">
-            <div class="panel__header">
-                <div>
-                    <p id="submissionPanelEyebrow" class="panel__eyebrow">Akis</p>
-                    <h2 id="submissionPanelTitle">Son Gonderimler</h2>
-                </div>
-            </div>
-
-            <div id="workspaceSummaryCard" class="workspace-card"></div>
-            <div id="workspaceDebugCard"></div>
-            <div id="submissionList" class="submission-list"></div>
-        </section>
-
-        <section id="adminPanel" class="panel panel--author" hidden>
-            <div class="panel__header">
-                <div>
-                    <p class="panel__eyebrow">Admin</p>
-                    <h2>Authoring Console</h2>
-                </div>
-            </div>
-
-            <div id="catalogHealthCard" class="dashboard-card dashboard-card--admin">
-                <div class="empty-state">Catalog Health yalnizca admin oturumunda yuklenir.</div>
-            </div>
-
-            <div id="authoringFocusCard" class="dashboard-card dashboard-card--admin">
-                <div class="empty-state">Authoring Priorities secili problem icin burada gorunur.</div>
-            </div>
-
-            <div class="author-grid">
-                <form id="problemCreateForm" class="author-form">
-                    <h3>Problem Editor</h3>
-                    <p class="author-note">Secili problem forma otomatik yuklenir. Bu formdan yeni problem de acabilirsin.</p>
-                    <label>
-                        <span>Baslik</span>
-                        <input id="problemCreateTitle" type="text" placeholder="Yeni problem basligi">
-                    </label>
-                    <label>
-                        <span>Aciklama</span>
-                        <textarea id="problemCreateDescription" rows="6" placeholder="Problem metni"></textarea>
-                    </label>
-                    <label>
-                        <span>Constraints</span>
-                        <textarea id="problemCreateConstraints" rows="4" placeholder="1 <= n <= 1000000"></textarea>
-                    </label>
-                    <label>
-                        <span>Input Format</span>
-                        <textarea id="problemCreateInputFormat" rows="3" placeholder="A single integer n."></textarea>
-                    </label>
-                    <label>
-                        <span>Output Format</span>
-                        <textarea id="problemCreateOutputFormat" rows="3" placeholder="Print the answer as a single integer."></textarea>
-                    </label>
-                    <label>
-                        <span>Hint Title</span>
-                        <input id="problemCreateHintTitle" type="text" placeholder="Think in groups">
-                    </label>
-                    <label>
-                        <span>Hint Content</span>
-                        <textarea id="problemCreateHintContent" rows="5" placeholder="Ilk asama ipucunu yaz."></textarea>
-                    </label>
-                    <label>
-                        <span>Editorial Title</span>
-                        <input id="problemCreateEditorialTitle" type="text" placeholder="Arithmetic progression shortcut">
-                    </label>
-                    <label>
-                        <span>Editorial Content</span>
-                        <textarea id="problemCreateEditorialContent" rows="8" placeholder="Cozum notunu ve ana fikri yaz."></textarea>
-                    </label>
-                    <div class="author-form__row">
-                        <label>
-                            <span>Zorluk</span>
-                            <select id="problemCreateDifficulty">
-                                <option value="EASY">EASY</option>
-                                <option value="MEDIUM">MEDIUM</option>
-                                <option value="HARD">HARD</option>
-                            </select>
-                        </label>
-                        <label>
-                            <span>Sure limiti (ms)</span>
-                            <input id="problemCreateTimeLimit" type="number" min="1" value="5000">
-                        </label>
-                        <label>
-                            <span>Bellek limiti (MB)</span>
-                            <input id="problemCreateMemoryLimit" type="number" min="1" value="256">
-                        </label>
-                    </div>
-                    <label>
-                        <span>Tags</span>
-                        <input id="problemCreateTags" type="text" placeholder="math, dp, number-theory">
-                    </label>
-                    <label>
-                        <span>Examples JSON</span>
-                        <textarea id="problemCreateExamples" rows="8" placeholder='[{"input":"10","output":"23","explanation":"Sample explanation"}]'></textarea>
-                    </label>
-                    <label>
-                        <span>Starter Codes JSON</span>
-                        <textarea id="problemCreateStarterCodes" rows="10" placeholder='{"JAVA":"public class Solution {\\n    public static long solve(long n) {\\n        return 0L;\\n    }\\n}","PYTHON":"n = int(input().strip())\\nprint(0)","CPP":"#include <iostream>\\nusing namespace std;\\n\\nint main() {\\n    long long n;\\n    cin >> n;\\n    cout << 0;\\n    return 0;\\n}"}'></textarea>
-                    </label>
-                    <div class="author-actions">
-                        <button type="submit" class="button">Yeni Problem</button>
-                        <button id="problemUpdateButton" type="button" class="button button--ghost">Secili Problemi Guncelle</button>
-                        <button id="problemDeleteButton" type="button" class="button button--ghost button--danger">Problemi Sil</button>
-                    </div>
-                </form>
-
-                <form id="testCaseCreateForm" class="author-form">
-                    <h3>Test Case Editor</h3>
-                    <p class="author-note">Secili problem: <strong id="adminSelectedProblem">-</strong></p>
-                    <p class="author-note">Duzenlenen case: <strong id="adminSelectedTestCase">Yeni kayit</strong></p>
-                    <label>
-                        <span>Input</span>
-                        <textarea id="testCaseInput" rows="4" placeholder="stdin verisi"></textarea>
-                    </label>
-                    <label>
-                        <span>Expected Output</span>
-                        <textarea id="testCaseExpectedOutput" rows="4" placeholder="beklenen cikti"></textarea>
-                    </label>
-                    <label class="author-checkbox">
-                        <input id="testCaseHidden" type="checkbox">
-                        <span>Hidden testcase</span>
-                    </label>
-                    <div class="author-actions">
-                        <button id="testCaseSubmitButton" type="submit" class="button">Test Case Kaydet</button>
-                        <button id="testCaseCancelButton" type="button" class="button button--ghost" hidden>Duzenlemeyi Iptal</button>
-                    </div>
-                </form>
-            </div>
-
-            <form id="testCaseBulkForm" class="author-form author-form--full">
-                <h3>Bulk Test Case Import</h3>
-                <p class="author-note">JSON array yapistir. Ornek: <code>[{"input":"10","expectedOutput":"23","hidden":false}]</code></p>
-                <label>
-                    <span>Payload</span>
-                    <textarea id="testCaseBulkPayload" rows="8" placeholder='[{"input":"10","expectedOutput":"23","hidden":false}]'></textarea>
-                </label>
-                <div class="author-actions">
-                    <button type="submit" class="button">Bulk Import</button>
-                </div>
-            </form>
-
-            <form id="problemBulkForm" class="author-form author-form--full">
-                <h3>Bulk Problem Import</h3>
-                <p class="author-note">JSON array veya <code>{ "problems": [...] }</code> yapisi kabul edilir. Her problem payload'i isterse kendi <code>testCases</code> listesini de tasiyabilir.</p>
-                <label>
-                    <span>Payload</span>
-                    <textarea id="problemBulkPayload" rows="12" placeholder='[{"title":"New Problem","description":"...","difficulty":"EASY","inputFormat":"A single integer n.","outputFormat":"Print the answer.","timeLimitMs":5000,"memoryLimitMb":256,"tags":["math"],"examples":[{"input":"10","output":"23"}],"starterCodes":{"JAVA":"public class Solution {}"},"testCases":[{"input":"10","expectedOutput":"23","hidden":false},{"input":"1000","expectedOutput":"233168","hidden":true}]}]'></textarea>
-                </label>
-                <div class="author-actions">
-                    <button type="submit" class="button">Problem Bulk Import</button>
-                </div>
-            </form>
-
-            <div class="author-listing">
+        <aside class="landing-side">
+            <section class="panel panel--echo landing-panel">
                 <div class="panel__header">
                     <div>
-                        <p class="panel__eyebrow">Admin Gorunumu</p>
-                        <h3>Butun Test Caseler</h3>
+                        <p class="panel__eyebrow">Control room</p>
+                        <h2>Product surfaces</h2>
+                        <span class="sr-only">Structure Shift</span>
                     </div>
                 </div>
-                <div id="adminTestCaseList" class="sample-list"></div>
-            </div>
-
-            <div id="authorFeedback" class="feedback feedback--idle">
-                Admin paneli sadece problem authoring icin kullanilir.
-            </div>
-        </section>
+                <div id="landingRuntimeCard" class="workspace-card">
+                    <p class="workspace-card__lead">Runtime bilgisi yukleniyor.</p>
+                </div>
+                <div class="landing-surface-grid">
+                    <article class="workspace-card landing-surface-card">
+                        <p class="workspace-debug__eyebrow">Arena</p>
+                        <h3>Solve workstation</h3>
+                        <p class="workspace-card__lead">Problem archive, codex, replay ve echo akisi tek solve yuzeyinde.</p>
+                        <div class="workspace-card__actions">
+                            <a class="button button--ghost button--small" href="/arena.html">Open Arena</a>
+                        </div>
+                    </article>
+                    <article class="workspace-card landing-surface-card">
+                        <p class="workspace-debug__eyebrow">Continuum</p>
+                        <h3>Progress & hall</h3>
+                        <p class="workspace-card__lead">Journey, Hall of Fame ve public profile solve chamber'in disinda kendi ritminde yasiyor.</p>
+                        <div class="workspace-card__actions">
+                            <a class="button button--ghost button--small" href="/continuum.html">Open Continuum</a>
+                        </div>
+                    </article>
+                    <article class="workspace-card landing-surface-card">
+                        <p class="workspace-debug__eyebrow">Sanctum</p>
+                        <h3>Authoring workspace</h3>
+                        <p class="workspace-card__lead">Catalog sagligi, hidden depth ve editor akislarini yonetmek icin ayrilmis admin yuzeyi.</p>
+                        <div class="workspace-card__actions">
+                            <a class="button button--ghost button--small" href="/sanctum.html">Open Sanctum</a>
+                        </div>
+                    </article>
+                </div>
+            </section>
+        </aside>
     </main>
 </div>
 </body>

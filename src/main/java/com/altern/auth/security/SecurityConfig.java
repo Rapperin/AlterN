@@ -47,12 +47,15 @@ public class SecurityConfig {
                             objectMapper.writeValue(response.getOutputStream(), new ErrorResponse("Access denied."));
                         })
                 )
-                .authorizeHttpRequests(auth -> auth
+                        .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/",
                                 "/index.html",
+                                "/arena.html",
+                                "/continuum.html",
+                                "/sanctum.html",
                                 "/styles.css",
-                                "/app.js",
+                                "/js/**",
                                 "/favicon.ico",
                                 "/api/health",
                                 "/swagger",

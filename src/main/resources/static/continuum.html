@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlterN Continuum</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/js/pages/continuum.js"></script>
+</head>
+<body class="page--continuum" data-workspace-mode="engaged">
+<div class="page-shell">
+    <div class="stage-veil stage-veil--north" aria-hidden="true"></div>
+    <div class="stage-veil stage-veil--south" aria-hidden="true"></div>
+
+    <header class="hero">
+        <div class="hero__aura" aria-hidden="true">
+            <span class="hero__aura-ring"></span>
+            <span class="hero__aura-ring hero__aura-ring--inner"></span>
+        </div>
+        <div class="hero__content">
+            <div class="hero__copy">
+                <div class="hero__eyebrow">Progress, ranking ve public identity surface</div>
+                <h1>Continuum</h1>
+                <p>
+                    Solve chamber'i hafif tutarken ilerleme, Hall of Fame ve public solver card
+                    akisini tek dashboard ritminde topluyoruz. Burasi kullanicinin solve sonrasi
+                    izlerini takip ettigi urun yuzeyi.
+                </p>
+                <div class="hero__mantra" aria-label="Continuum rotasi">
+                    <span>Journey</span>
+                    <span>Hall</span>
+                    <span>Profiles</span>
+                </div>
+            </div>
+            <div class="hero__actions">
+                <div class="hero__links">
+                    <a class="hero__link hero__link--ghost" href="/">Landing</a>
+                    <a class="hero__link hero__link--ghost" href="/arena.html">Arena</a>
+                    <a class="hero__link" href="/continuum.html">Continuum</a>
+                    <a class="hero__link hero__link--ghost" href="/sanctum.html">Sanctum</a>
+                </div>
+
+                <section class="auth-panel">
+                    <div class="auth-panel__header">
+                        <div>
+                            <p class="hero__eyebrow">Session</p>
+                            <h2 id="authStatus">Giris yap</h2>
+                        </div>
+                    </div>
+
+                    <form id="authForm" class="auth-form">
+                        <label>
+                            <span>Username</span>
+                            <input id="authUsername" type="text" autocomplete="username" placeholder="username">
+                        </label>
+                        <label>
+                            <span>Password</span>
+                            <input id="authPassword" type="password" autocomplete="current-password" placeholder="password">
+                        </label>
+                        <div class="auth-actions">
+                            <button id="loginButton" type="submit" class="button">Login</button>
+                            <button id="registerButton" type="button" class="button button--ghost">Register</button>
+                        </div>
+                    </form>
+
+                    <div id="authCurrent" class="auth-current" hidden>
+                        <p><strong id="authCurrentUsername">-</strong></p>
+                        <p>Role: <span id="authCurrentRole">-</span></p>
+                        <div class="auth-actions">
+                            <a class="button" href="/arena.html">Arena'ya don</a>
+                            <button id="logoutButton" type="button" class="button button--ghost">Logout</button>
+                        </div>
+                    </div>
+
+                    <p id="authFeedback" class="auth-feedback">Continuum'u kisisel dashboard olarak kullanmak icin hesabinla giris yap.</p>
+                </section>
+            </div>
+        </div>
+    </header>
+
+    <main class="workspace workspace--continuum">
+        <aside class="panel panel--sidebar panel--archive continuum-rail">
+            <div class="panel__header">
+                <div>
+                    <p class="panel__eyebrow">Continuum</p>
+                    <h2>Session Rail</h2>
+                    <span class="sr-only">Journey Map</span>
+                </div>
+                <span class="badge">Progress surface</span>
+            </div>
+
+            <div id="progressSummary" class="progress-summary">
+                <p class="progress-summary__lead">Session acildiginda kisisel ilerleme burada gorunecek.</p>
+            </div>
+
+            <div class="workspace-card workspace-card--compact">
+                <p class="workspace-debug__eyebrow">Quick route</p>
+                <h3>Switch surfaces without losing context</h3>
+                <p class="workspace-card__lead">
+                    Solve icin Arena'ya don, authoring gerekiyorsa Sanctum'a gec. Continuum bu ikisi
+                    arasinda kullanicinin izlerini bir arada tutar.
+                </p>
+                <div class="workspace-card__actions">
+                    <a class="button button--ghost button--small" href="/arena.html">Solve in Arena</a>
+                    <a class="button button--ghost button--small" href="/sanctum.html">Open Sanctum</a>
+                </div>
+            </div>
+        </aside>
+
+        <div class="workbench workbench--continuum">
+            <section class="panel panel--codex continuum-panel">
+                <div class="panel__header">
+                    <div>
+                        <p class="panel__eyebrow">Journey</p>
+                        <h2>Personal Continuum</h2>
+                    </div>
+                </div>
+
+                <div id="userDashboardCard" class="dashboard-card">
+                    <div class="empty-state">Session acildiginda dashboard burada gorunecek.</div>
+                </div>
+            </section>
+
+            <aside class="continuum-stack">
+                <section class="panel panel--echo continuum-panel">
+                    <div class="panel__header">
+                        <div>
+                            <p class="panel__eyebrow">Community</p>
+                            <h2>Hall of Fame</h2>
+                        </div>
+                    </div>
+
+                    <div id="communityLeaderboardCard" class="dashboard-card">
+                        <div class="empty-state">Global leaderboard yukleniyor.</div>
+                    </div>
+                </section>
+
+                <section class="panel panel--echo continuum-panel">
+                    <div class="panel__header">
+                        <div>
+                            <p class="panel__eyebrow">Profile</p>
+                            <h2>Public Solver Card</h2>
+                        </div>
+                    </div>
+
+                    <div id="userProfileCard" class="dashboard-card">
+                        <div class="empty-state">Hall of Fame'den veya kendi dashboard'undan bir solver sec.</div>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </main>
+</div>
+</body>
+</html>

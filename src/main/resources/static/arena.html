@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlterN</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/js/pages/arena.js"></script>
+</head>
+<body class="page--arena" data-workspace-mode="engaged">
+<div class="page-shell">
+    <div class="stage-veil stage-veil--north" aria-hidden="true"></div>
+    <div class="stage-veil stage-veil--south" aria-hidden="true"></div>
+
+    <header class="hero">
+        <div class="hero__aura" aria-hidden="true">
+            <span class="hero__aura-ring"></span>
+            <span class="hero__aura-ring hero__aura-ring--inner"></span>
+        </div>
+        <div class="hero__content">
+            <div class="hero__copy">
+                <div class="hero__eyebrow">Solve-first workstation</div>
+                <h1>AlterN</h1>
+                <p>
+                    Curated problem archive, live editor, replay ve verdict stream tek chamber
+                    icinde bir arada. Problemi sec, kodu guncelle, sonucu ayni yuzeyde takip et.
+                </p>
+                <div class="hero__mantra" aria-label="AlterN ruhu">
+                    <span>Archive</span>
+                    <span>Replay</span>
+                    <span>Verdict stream</span>
+                </div>
+                <div id="preflightBanner" class="preflight-banner" hidden>
+                    <strong>Runtime readiness</strong>
+                    <p>Execution preflight bilgisi yukleniyor.</p>
+                </div>
+            </div>
+            <div class="hero__actions">
+                <div class="hero__links">
+                    <a class="hero__link hero__link--ghost" href="/">Landing</a>
+                    <a class="hero__link" href="/arena.html">Arena</a>
+                    <a class="hero__link hero__link--ghost" href="/continuum.html">Continuum</a>
+                    <a class="hero__link hero__link--ghost" href="/sanctum.html">Sanctum</a>
+                </div>
+
+                <section class="auth-panel">
+                    <div class="auth-panel__header">
+                        <div>
+                            <p class="hero__eyebrow">Session</p>
+                            <h2 id="authStatus">Giris yap</h2>
+                        </div>
+                    </div>
+
+                    <form id="authForm" class="auth-form">
+                        <label>
+                            <span>Username</span>
+                            <input id="authUsername" type="text" autocomplete="username" placeholder="username">
+                        </label>
+                        <label>
+                            <span>Password</span>
+                            <input id="authPassword" type="password" autocomplete="current-password" placeholder="password">
+                        </label>
+                        <div class="auth-actions">
+                            <button id="loginButton" type="submit" class="button">Login</button>
+                            <button id="registerButton" type="button" class="button button--ghost">Register</button>
+                        </div>
+                    </form>
+
+                    <div id="authCurrent" class="auth-current" hidden>
+                        <p><strong id="authCurrentUsername">-</strong></p>
+                        <p>Role: <span id="authCurrentRole">-</span></p>
+                        <button id="logoutButton" type="button" class="button button--ghost">Logout</button>
+                    </div>
+
+                    <p id="authFeedback" class="auth-feedback">Save queue, replay ve echo gecmisi icin hesabinla giris yap.</p>
+                </section>
+            </div>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <aside class="panel panel--sidebar panel--archive">
+            <div class="panel__header">
+                <div>
+                    <p class="panel__eyebrow">Archive</p>
+                    <h2>Challenge Archive</h2>
+                </div>
+                <span id="problemCount" class="badge">0 problem</span>
+            </div>
+
+            <label class="search">
+                <span>Ara</span>
+                <input id="problemSearch" type="search" placeholder="Baslik veya zorluk">
+            </label>
+
+            <div id="problemFacetCard" class="facet-card">
+                <div class="facet-card__header">
+                    <div>
+                        <p class="panel__eyebrow panel__eyebrow--muted">Problem focus</p>
+                        <h3>Difficulty & Tags</h3>
+                    </div>
+                </div>
+            </div>
+            <div id="progressSummary" class="progress-summary"></div>
+            <div id="problemList" class="problem-list"></div>
+        </aside>
+        <div class="workbench">
+            <div class="workbench__stream">
+                <section class="panel panel--problem panel--codex">
+                    <div class="panel__header">
+                        <div>
+                            <p class="panel__eyebrow">Codex</p>
+                            <h2 id="problemTitle">Yukleniyor...</h2>
+                        </div>
+                        <div class="workspace-card__actions">
+                            <button id="problemBookmarkButton" type="button" class="button button--ghost button--small" hidden>Save for later</button>
+                            <span id="problemDifficulty" class="difficulty difficulty--muted">-</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <article class="stat-card">
+                            <span>Visible samples</span>
+                            <strong id="visibleTestcaseCount">0</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Total submissions</span>
+                            <strong id="submissionCount">0</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Your status</span>
+                            <strong id="viewerStatus">Login</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Time limit</span>
+                            <strong id="problemTimeLimit">5000 ms</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Memory limit</span>
+                            <strong id="problemMemoryLimit">256 MB</strong>
+                        </article>
+                    </div>
+
+                    <div class="codex-layout">
+                        <div class="codex-layout__main">
+                            <div class="problem-copy problem-copy--lead">
+                                <h3>Aciklama</h3>
+                                <p id="problemDescription">Problem aciklamasi yukleniyor.</p>
+                            </div>
+
+                            <div class="problem-spec-grid">
+                                <div class="problem-copy">
+                                    <h3>Constraints</h3>
+                                    <p id="problemConstraints">Constraint bilgisi yukleniyor.</p>
+                                </div>
+
+                                <div class="problem-copy">
+                                    <h3>Input Format</h3>
+                                    <p id="problemInputFormat">Input format bilgisi yukleniyor.</p>
+                                </div>
+
+                                <div class="problem-copy">
+                                    <h3>Output Format</h3>
+                                    <p id="problemOutputFormat">Output format bilgisi yukleniyor.</p>
+                                </div>
+                            </div>
+
+                            <div class="samples">
+                                <div class="samples__header">
+                                    <div>
+                                        <h3>Examples</h3>
+                                        <p>Problem statement icindeki ornek girdiler ve beklenen ciktilar.</p>
+                                    </div>
+                                </div>
+                                <div id="problemExampleList" class="sample-list"></div>
+                            </div>
+
+                            <div class="samples">
+                                <div class="samples__header">
+                                    <div>
+                                        <h3>Public test cases</h3>
+                                        <p>Yalnizca gorunur ornekler burada listelenir. Judge hidden testleri de kullanir.</p>
+                                    </div>
+                                </div>
+                                <div id="sampleList" class="sample-list"></div>
+                            </div>
+                        </div>
+
+                        <aside class="codex-layout__side">
+                            <div class="problem-copy problem-copy--compact">
+                                <h3>Tags</h3>
+                                <div id="problemTags" class="tag-list"></div>
+                            </div>
+
+                            <div class="samples samples--compact">
+                                <div class="samples__header">
+                                    <div>
+                                        <h3>Problem Leaderboard</h3>
+                                        <p>Bu problemdeki en iyi accepted run'lar kullanici bazli siralanir.</p>
+                                    </div>
+                                </div>
+                                <div id="problemLeaderboardCard" class="workspace-card"></div>
+                            </div>
+
+                            <div class="samples samples--compact">
+                                <div class="samples__header">
+                                    <div>
+                                        <h3>Community Snapshot</h3>
+                                        <p>Bu problemdeki public cozum aktivitesinin ozetini gosterir.</p>
+                                    </div>
+                                </div>
+                                <div id="problemStatsCard" class="workspace-card"></div>
+                            </div>
+
+                            <div class="samples samples--compact">
+                                <div class="samples__header">
+                                    <div>
+                                        <h3 id="problemHintHeading">Hint</h3>
+                                        <p id="problemHintState">Ilk gonderimden sonra acilir.</p>
+                                    </div>
+                                </div>
+                                <div id="problemHint" class="editorial-card"></div>
+                            </div>
+
+                            <div class="samples samples--compact">
+                                <div class="samples__header">
+                                    <div>
+                                        <h3 id="problemEditorialHeading">Editorial</h3>
+                                        <p id="problemEditorialState">Accepted gonderimden sonra acilir.</p>
+                                    </div>
+                                </div>
+                                <div id="problemEditorial" class="editorial-card"></div>
+                            </div>
+                        </aside>
+                    </div>
+                </section>
+
+                <section class="panel panel--submissions panel--echo">
+                    <div class="panel__header">
+                        <div>
+                            <p id="submissionPanelEyebrow" class="panel__eyebrow">Echo Log</p>
+                            <h2 id="submissionPanelTitle">Submission Echoes</h2>
+                        </div>
+                    </div>
+
+                    <div class="echo-grid">
+                        <div class="echo-stream">
+                            <div id="workspaceSummaryCard" class="workspace-card"></div>
+                            <div id="workspaceDebugCard"></div>
+                            <div id="submissionList" class="submission-list"></div>
+                        </div>
+
+                        <aside class="echo-orbit">
+                            <div id="runnerHealthCard" class="dashboard-card">
+                                <div class="dashboard-card__header">
+                                    <div>
+                                        <p class="panel__eyebrow panel__eyebrow--muted">Infra</p>
+                                        <h3>Execution Runtime</h3>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="continuumGateCard" class="dashboard-card">
+                                <div class="dashboard-card__header">
+                                    <div>
+                                        <p class="panel__eyebrow panel__eyebrow--muted">Continuum</p>
+                                        <h3>Continuum snapshot</h3>
+                                        <span class="sr-only">Journey moved out</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </section>
+            </div>
+
+            <section class="panel panel--editor panel--forge">
+                <div class="panel__header">
+                    <div>
+                        <p class="panel__eyebrow">Forge</p>
+                        <h2>Solve Chamber</h2>
+                    </div>
+                </div>
+
+                <form id="submissionForm" class="editor-form">
+                    <div id="editorForgeStatus" class="editor-forge-status"></div>
+
+                    <div id="editorStage" class="editor-stage">
+                        <div class="editor-stage__rail" aria-hidden="true"></div>
+
+                        <div class="editor-toolbar">
+                            <label>
+                                <span>Language</span>
+                                <select id="language">
+                                    <option value="JAVA">JAVA</option>
+                                    <option value="PYTHON">PYTHON</option>
+                                    <option value="CPP">CPP</option>
+                                </select>
+                            </label>
+
+                            <button id="templateButton" type="button" class="button button--ghost">Starter code</button>
+                        </div>
+
+                        <div id="editorLanguageRecommendation" class="editor-language-recommendation" hidden></div>
+
+                        <label class="editor-shell editor-shell--forge">
+                            <span>Source</span>
+                            <textarea id="sourceCode" spellcheck="false"></textarea>
+                        </label>
+
+                        <div class="editor-actions">
+                            <button id="submitButton" type="submit" class="button">Submit</button>
+                            <p id="editorNote" class="editor-note">JAVA gercek derlenir. Beklenen format: Solution.solve(...) veya Solution.main(...).</p>
+                        </div>
+
+                        <div id="editorRuntimeAssist" class="editor-runtime-assist" hidden></div>
+                    </div>
+                </form>
+
+                <div id="draftStatusCard" class="feedback feedback--idle">
+                    Local Drafts secili problemde otomatik kaydedilir.
+                </div>
+
+                <div id="submissionFeedback" class="feedback feedback--idle">
+                    Bir problem sec ve ilk denemeni gonder.
+                </div>
+
+                <section class="replay-panel">
+                    <div class="samples__header">
+                        <div>
+                            <h3>Custom Replay</h3>
+                            <p>Editordeki guncel kodu secili input ile tek sefer calistir.</p>
+                        </div>
+                        <button id="replayClearButton" type="button" class="button button--ghost button--small">Temizle</button>
+                    </div>
+
+                    <form id="replayForm" class="replay-form">
+                        <label class="editor-shell editor-shell--compact">
+                            <span>Input</span>
+                            <textarea id="replayInput" spellcheck="false" placeholder="Sample input veya kendi testin"></textarea>
+                        </label>
+
+                        <label class="editor-shell editor-shell--compact">
+                            <span>Expected Output (optional)</span>
+                            <textarea id="replayExpectedOutput" spellcheck="false" placeholder="Beklenen ciktiyi eklersen sonuc karsilastirilir"></textarea>
+                        </label>
+
+                        <div class="editor-actions">
+                            <button id="replayRunButton" type="submit" class="button">Run custom input</button>
+                            <p class="editor-note">Replay, problemin time limit'i ile calisir ve submission kaydi olusturmaz.</p>
+                        </div>
+                    </form>
+
+                    <div id="replayBaselineCard" class="feedback feedback--idle">
+                        Submission Baseline secersen custom replay ayni inputta eski gonderiminle karsilastirilir.
+                    </div>
+
+                    <div id="replayResultCard" class="feedback feedback--idle">
+                        Sample veya custom input ile tek seferlik run sonucu burada gorunecek.
+                    </div>
+
+                    <div id="replayCompareCard"></div>
+                </section>
+            </section>
+        </div>
+    </main>
+</div>
+</body>
+</html>

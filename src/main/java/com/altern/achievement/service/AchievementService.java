@@ -156,19 +156,19 @@ public class AchievementService {
                 .filter(goal -> goal.getCurrentValue() < goal.getTargetValue())
                 .sorted(Comparator
                         .comparingInt((JourneyGoalResponse goal) -> goal.getTargetValue() - goal.getCurrentValue())
-                        .thenComparingInt(goal -> goalPriority(goal.getCode()))
+                        .thenComparingInt(goal -> goalPriority(goal.getCode(), facts))
                         .thenComparing(JourneyGoalResponse::getTitle))
                 .limit(3)
                 .toList();
     }
 
-    private int goalPriority(String code) {
+    private int goalPriority(String code, AchievementFacts facts) {
         return switch (code) {
             case "HARD_SOLVER" -> 0;
             case "COMEBACK" -> 1;
-            case "STREAK_3" -> 2;
-            case "FIVE_SOLVED" -> 3;
-            case "POLYGLOT" -> 4;
+            case "POLYGLOT" -> facts.acceptedLanguages() >= 2 ? 2 : 4;
+            case "STREAK_3" -> facts.acceptedLanguages() >= 2 ? 3 : 2;
+            case "FIVE_SOLVED" -> 4;
             case "FIRST_ACCEPTED" -> 5;
             default -> 99;
         };

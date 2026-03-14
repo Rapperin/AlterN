@@ -3,37 +3,49 @@ package com.altern.submission.mapper;
 import com.altern.submission.dto.SubmissionDetailResponse;
 import com.altern.submission.dto.SubmissionResponse;
 import com.altern.submission.entity.Submission;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface SubmissionMapper {
-    
-    @Mapping(target = "problemId", source = "problem.id")
-    @Mapping(target = "language", expression = "java(submission.getLanguage() == null ? null : submission.getLanguage().name())")
-    @Mapping(target = "status", expression = "java(submission.getStatus() == null ? null : submission.getStatus().name())")
-    @Mapping(target = "createdAt", source = "createdAt")
-    @Mapping(target = "judgedAt", source = "judgedAt")
-    @Mapping(target = "problemTitle", source = "problem.title")
-    @Mapping(target = "executionTime", source = "executionTime")
-    @Mapping(target = "memoryUsage", source = "memoryUsage")
-    @Mapping(target = "verdictMessage", source = "verdictMessage")
-    SubmissionResponse toResponse(Submission submission);
+@Component
+public class SubmissionMapper {
 
-    @Mapping(target = "problemId", source = "problem.id")
-    @Mapping(target = "language", expression = "java(submission.getLanguage() == null ? null : submission.getLanguage().name())")
-    @Mapping(target = "status", expression = "java(submission.getStatus() == null ? null : submission.getStatus().name())")
-    @Mapping(target = "createdAt", source = "createdAt")
-    @Mapping(target = "judgedAt", source = "judgedAt")
-    @Mapping(target = "problemTitle", source = "problem.title")
-    @Mapping(target = "executionTime", source = "executionTime")
-    @Mapping(target = "memoryUsage", source = "memoryUsage")
-    @Mapping(target = "verdictMessage", source = "verdictMessage")
-    @Mapping(target = "sourceCode", source = "sourceCode")
-    @Mapping(target = "failedTestIndex", source = "failedTestIndex")
-    @Mapping(target = "failedVisible", source = "failedVisibleCase")
-    @Mapping(target = "failedInputPreview", source = "failedInputPreview")
-    @Mapping(target = "failedExpectedOutputPreview", source = "failedExpectedOutputPreview")
-    @Mapping(target = "failedActualOutputPreview", source = "failedActualOutputPreview")
-    SubmissionDetailResponse toDetailResponse(Submission submission);
+    public SubmissionResponse toResponse(Submission submission) {
+        if (submission == null) {
+            return null;
+        }
+
+        SubmissionResponse response = new SubmissionResponse();
+        applyBaseFields(submission, response);
+        return response;
+    }
+
+    public SubmissionDetailResponse toDetailResponse(Submission submission) {
+        if (submission == null) {
+            return null;
+        }
+
+        SubmissionDetailResponse response = new SubmissionDetailResponse();
+        applyBaseFields(submission, response);
+        response.setSourceCode(submission.getSourceCode());
+        response.setFailedTestIndex(submission.getFailedTestIndex());
+        response.setFailedVisible(submission.getFailedVisibleCase());
+        response.setFailedInputPreview(submission.getFailedInputPreview());
+        response.setFailedExpectedOutputPreview(submission.getFailedExpectedOutputPreview());
+        response.setFailedActualOutputPreview(submission.getFailedActualOutputPreview());
+        return response;
+    }
+
+    private void applyBaseFields(Submission submission, SubmissionResponse response) {
+        response.setId(submission.getId());
+        response.setProblemId(submission.getProblem() == null ? null : submission.getProblem().getId());
+        response.setLanguage(submission.getLanguage() == null ? null : submission.getLanguage().name());
+        response.setStatus(submission.getStatus() == null ? null : submission.getStatus().name());
+        response.setCreatedAt(submission.getCreatedAt());
+        response.setJudgedAt(submission.getJudgedAt());
+        response.setPassedTestCount(submission.getPassedTestCount());
+        response.setTotalTestCount(submission.getTotalTestCount());
+        response.setProblemTitle(submission.getProblem() == null ? null : submission.getProblem().getTitle());
+        response.setExecutionTime(submission.getExecutionTime());
+        response.setMemoryUsage(submission.getMemoryUsage());
+        response.setVerdictMessage(submission.getVerdictMessage());
+    }
 }
